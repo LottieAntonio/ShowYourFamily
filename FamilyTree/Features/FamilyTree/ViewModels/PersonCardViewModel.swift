@@ -29,40 +29,35 @@ class PersonCardViewModel: ObservableObject {
     @Published private var cachedTitle: String?
     
     var displayTitle: String {
-        if let person = currentPerson {
-            // 1. 如果是自己，返回"自己"
-            if person.isSelf {
-                return "自己"
-            }
-            // 2. 如果有自定义称呼（用户手动编辑的），直接返回
-            if let notes = person.notes, !notes.isEmpty {
-                return notes
-            }
-            // 3. 如果有缓存的自动生成称呼，返回缓存
-            if let cached = cachedTitle {
-                return cached
-            }
-            // 4. 异步获取自动生成的称呼
-            Task {
-                if person.notes?.isEmpty ?? true {  // 只在没有自定义称呼时更新
-                    cachedTitle = await managementViewModel.titleGenerator.generateTitle(for: person)
-                }
-            }
-            return "加载中..."
+        guard let person = currentPerson else { return "未知" }
+        
+        // 如果是自己，直接返回"自己"
+        if person.isSelf {
+            return "自己"
         }
-        return "称呼：未编辑"
+        
+        // 如果有缓存的称谓，返回缓存
+        if let cached = cachedTitle {
+            return cached
+        }
+        
+        // 触发异步更新
+        Task { @MainActor in
+            if let title = await managementViewModel.titleGenerator.generateTitle(for: person) {
+                self.cachedTitle = title
+                self.objectWillChange.send()
+            }
+        }
+        
+        return "计算亲属关系..."
     }
     
-    // 修改更新称呼的方法
     @MainActor
     func updateDisplayTitle() async {
         guard let person = currentPerson else { return }
-        // 只在没有自定义称呼时才更新自动生成的称呼
-        if person.notes?.isEmpty ?? true {
-            if let title = await titleGenerator.generateTitle(for: person) {
-                cachedTitle = title
-                objectWillChange.send()
-            }
+        if let title = await managementViewModel.titleGenerator.generateTitle(for: person) {
+            cachedTitle = title
+            objectWillChange.send()
         }
     }
     
@@ -86,7 +81,9 @@ class PersonCardViewModel: ObservableObject {
             }
             self.state = state
         }
-        
+        Task {
+            await updateDisplayTitle()
+        }
         // 清除默认值
         Task {
             await managementViewModel.setDefaultValues()
@@ -216,9 +213,19 @@ class PersonCardViewModel: ObservableObject {
     
     @MainActor
     func updateNotes(_ notes: String) async {
+        // 1. 更新本地状态
         var newState = state
         newState.basicInfo.notes = notes
         state = newState
+        
+        // 2. 更新 Person 模型
+        if var person = self.person {
+            person.notes = notes.isEmpty ? nil : notes
+            try? await managementViewModel.updatePerson(person)
+        }
+        
+        // 3. 清除称谓缓存，强制重新计算
+        cachedTitle = nil
         objectWillChange.send()
     }
     var isViewMode: Bool {
@@ -368,9 +375,10 @@ class PersonCardViewModel: ObservableObject {
             try await managementViewModel.familyTreeViewModel.dataManager.savePerson(otherPerson)
         }
         
-        // 设置并保存当前人物为自己
+        // 设置并保存当前人物为自己，同时清空 notes
         var updatedPerson = person
         updatedPerson.isSelf = true
+        updatedPerson.notes = ""  // 清空 notes
         try await managementViewModel.updatePerson(updatedPerson)
         // 确保数据被保存
         try await managementViewModel.familyTreeViewModel.dataManager.savePerson(updatedPerson)
@@ -378,13 +386,18 @@ class PersonCardViewModel: ObservableObject {
         
         // 更新本地状态
         await MainActor.run {
-            self.state = PersonCardState.from(updatedPerson)
-            objectWillChange.send()
+            var newState = state
+            newState.basicInfo.notes = ""  // 同时更新本地状态的 notes
+            self.state = newState
+            self.objectWillChange.send()
         }
         
         // 重新加载数据（这会同时更新所有人的称呼）
         print("⏳ 重新加载数据")
         await managementViewModel.loadData()
+        
+        // 通知所有相关视图模型更新
+        try await managementViewModel.familyTreeViewModel.loadData()
         
         // 再次确认更新
         if let reloadedPerson = managementViewModel.persons.first(where: { $0.id == person.id }) {
@@ -394,6 +407,7 @@ class PersonCardViewModel: ObservableObject {
                 objectWillChange.send()
             }
         }
+        
         
         print("✅ setSelfPerson 执行完成")
     }

@@ -49,11 +49,16 @@ class RelativeTitleGenerator {
     
     @MainActor
     func generateTitle(for relative: Person) async -> String? {
+        // 如果有用户自定义的称谓，优先使用
+        if let customTitle = relative.notes, !customTitle.isEmpty {
+            return customTitle
+        }
+        
         guard let viewModel = managementViewModel else { return nil }
         
         // 如果是自己，直接返回
         if relative.isSelf {
-            return "我"
+            return "自己"  // 修改这里，从"我"改为"自己"
         }
         
         // 强制更新关系图
@@ -71,7 +76,7 @@ class RelativeTitleGenerator {
             to: relative.id
         ) else {
             print("⚠️ 未找到关系：从 \(selfPerson.firstName) 到 \(relative.firstName)")
-            return "未知关系"
+            return relative.name  // 改为返回人名而不是"未知关系"
         }
         
         // 生成称呼

@@ -5,7 +5,9 @@ struct FamilyTreeView: View {
     @StateObject private var personManager: PersonManagementViewModel
     @State private var showingPersonCard = false
     @State private var selectedMode: PersonCardMode = .view
-    
+    @State private var selectedPersonOffset: CGSize = .zero
+    @State private var isTransitioning = false
+    @Namespace private var animation
     init() {
         let familyViewModel = FamilyTreeViewModel()
         _viewModel = StateObject(wrappedValue: familyViewModel)
@@ -41,10 +43,9 @@ struct FamilyTreeView: View {
                     .buttonStyle(.plain)
                 } else {
                     VStack(spacing: 20) {
-                        // 修改这里，使用 personManager 中的 selectedPerson
                         if let currentPerson = personManager.selectedPerson {
-                            // 添加 id 强制刷新整个内容
                             Group {
+                                // 添加切换动画
                                 VStack(alignment: .center) {
                                     HStack(alignment: .top) {
                                         // 父亲关系区域
@@ -53,6 +54,11 @@ struct FamilyTreeView: View {
                                             persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.father),
                                             onAddTap: {
                                                 Task {
+                                                    await MainActor.run {
+                                                        withAnimation(.spring(duration: 0.3)) {
+                                                            showingPersonCard = true
+                                                        }
+                                                    }
                                                     await showAddRelation(
                                                         for: currentPerson,
                                                         type: RelationType.father,
@@ -62,8 +68,10 @@ struct FamilyTreeView: View {
                                                 }
                                             },
                                             onPersonTap: { person in
-                                                personManager.selectedPerson = person
-                                                showingPersonCard = false
+                                                withAnimation(.spring(duration: 0.3)) {
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                }
                                             },
                                             viewModel: personManager
                                         )
@@ -74,6 +82,11 @@ struct FamilyTreeView: View {
                                             persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.mother),
                                             onAddTap: {
                                                 Task {
+                                                    await MainActor.run {
+                                                        withAnimation(.spring(duration: 0.3)) {
+                                                            showingPersonCard = true
+                                                        }
+                                                    }
                                                     await showAddRelation(
                                                         for: currentPerson,
                                                         type: RelationType.mother,
@@ -82,8 +95,18 @@ struct FamilyTreeView: View {
                                                 }
                                             },
                                             onPersonTap: { person in
-                                                personManager.selectedPerson = person
-                                                showingPersonCard = false
+                                                withAnimation(.spring(duration: 0.5)) {
+                                                    isTransitioning = true
+                                                }
+                                                
+                                                // 延迟切换人物，等待动画完成
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                                    withAnimation(.spring(duration: 0.3)) {
+                                                        personManager.selectedPerson = person
+                                                        showingPersonCard = false
+                                                        isTransitioning = false
+                                                    }
+                                                }
                                             },
                                             viewModel: personManager
                                         )
@@ -116,18 +139,28 @@ struct FamilyTreeView: View {
                                         .foregroundStyle(Color.gray.opacity(0.1))
                                         
                                     PersonCard(
-                                        person: currentPerson,  // 直接使用 currentPerson
+                                        person: currentPerson,
                                         mode: .view,
                                         managementViewModel: personManager
                                     )
-                                    .id(currentPerson.id)  // 添加 id 确保视图更新
-                                    .onTapGesture {
+                                    .id(currentPerson.id)
+                                }
+                                .matchedGeometryEffect(id: currentPerson.id, in: animation, isSource: true)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                        .scaleEffect(currentPerson.isSelf ? 1.02 : 1.0)
+                                        .opacity(currentPerson.isSelf ? 0.8 : 0.3)
+                                        .animation(.easeInOut(duration: 1.5).repeatForever(), value: currentPerson.isSelf)
+                                }
+                                .padding(.vertical, -10)
+                                .onTapGesture {
+                                    withAnimation(.spring(duration: 0.3)) {
                                         personManager.selectedPerson = currentPerson
                                         selectedMode = .edit
                                         showingPersonCard = true
                                     }
                                 }
-                                .padding(.vertical, -10)
                                 
                                 VStack() {
                                     // 子女关系区域
@@ -192,6 +225,11 @@ struct FamilyTreeView: View {
                                     }
                                 }
                             }
+                            .transition(.asymmetric(
+                               insertion: .move(edge: .trailing).combined(with: .opacity),
+                               removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                               .animation(.spring(duration: 0.3), value: currentPerson.id)
                         }
                     }
                     .padding()
@@ -217,6 +255,12 @@ struct FamilyTreeView: View {
         .onAppear {
             Task {
                 await personManager.loadData()
+                // 找到并设置"自己"为选中的人物
+                if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                    await MainActor.run {
+                        personManager.selectedPerson = selfPerson
+                    }
+                }
             }
         }
     }

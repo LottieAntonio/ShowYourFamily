@@ -67,6 +67,10 @@ struct PersonBasicInfoSection: View {
                                 Text("自己")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
+                            } else if !notes.isEmpty {
+                                Text(viewModel.state.basicInfo.notes)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             } else {
                                 Text(viewModel.displayTitle)
                                     .font(.subheadline)
@@ -109,7 +113,7 @@ struct PersonBasicInfoSection: View {
                                         }
                                     }
                             }
-                            TextField("称呼", text: $notes, axis: .vertical)
+                            TextField("自定义称呼（留空则自动生成）", text: $notes, axis: .vertical)
                                 .lineLimit(3...6)
                                 .padding(8)
                                 .background(Color(.systemGray6))

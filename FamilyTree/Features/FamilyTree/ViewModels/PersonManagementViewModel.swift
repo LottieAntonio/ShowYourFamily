@@ -85,12 +85,6 @@ class PersonManagementViewModel: ObservableObject {
             var updatedPersons: [Person] = []
             for person in persons {
                 var updatedPerson = person
-                // 只有当 notes 为空或为 nil 时，才使用自动生成的称谓
-                if updatedPerson.notes?.isEmpty ?? true {
-                    if let title = await titleGenerator.generateTitle(for: person) {
-                        updatedPerson.notes = title
-                    }
-                }
                 updatedPersons.append(updatedPerson)
             }
             
@@ -236,7 +230,7 @@ class PersonManagementViewModel: ObservableObject {
                 }
             }
             
-            await updateRelativeTitles()
+          
             await reloadData()
             
         default:
@@ -505,48 +499,5 @@ class PersonManagementViewModel: ObservableObject {
         return Generation(rawValue: generation)
     }
     
-    private func updateRelativeTitles() async {
-        guard let selfPerson = persons.first(where: { $0.isSelf }) else { return }
-        
-        for var person in persons where person.id != selfPerson.id {
-            let relationships = findRelationshipPath(from: selfPerson.id, to: person.id)
-            if let generation = calculateGeneration(from: relationships) {
-                var title = ""
-                
-                switch generation {
-                case .firstUp:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的父亲" : "\(selfPerson.firstName) 的母亲"
-                case .secondUp:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的爷爷" : "\(selfPerson.firstName)的奶奶"
-                case .thirdUp:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的曾祖父" : "\(selfPerson.firstName)的曾祖母"
-                case .fourthUp:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的高祖父" : "\(selfPerson.firstName)的高祖母"
-                case .firstDown:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的儿子" : "\(selfPerson.firstName)的女儿"
-                case .secondDown:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的孙子" : "\(selfPerson.firstName)的孙女"
-                case .thirdDown:
-                    title = person.gender == .male ? "\(selfPerson.firstName)的曾孙" : "\(selfPerson.firstName)的曾孙女"
-                case .current:
-                    if let _ = relationships.first(where: { $0.type == .spouse }) {
-                        title = person.gender == .male ? "\(selfPerson.firstName)的丈夫" : "\(selfPerson.firstName)的妻子"
-                    }
-                default:
-                    title = generation.title
-                    if generation.rawValue > 0 {
-                        title += person.gender == .male ? "父" : "母"
-                    } else {
-                        title += person.gender == .male ? "子" : "女"
-                    }
-                    title = "\(selfPerson.firstName)的\(title)"
-                }
-                
-                if !title.isEmpty {
-                    person.notes = title
-                    try? await updatePerson(person)
-                }
-            }
-        }
-    }
+   
 }

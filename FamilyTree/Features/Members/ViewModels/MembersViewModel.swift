@@ -5,24 +5,56 @@ import Combine
 class MembersViewModel: ObservableObject {
     @Published private(set) var persons: [Person] = []
     @Published var selectedPerson: Person?
-    @Published var errorMessage: String?  // 添加错误消息属性
+    @Published var errorMessage: String?
+    @Published private var titleCache: [UUID: String] = [:] // 添加称谓缓存
+    
     private let familyTreeViewModel: FamilyTreeViewModel
     private var cancellables = Set<AnyCancellable>()
+    private lazy var personManager = PersonManagementViewModel(familyTreeViewModel: familyTreeViewModel)
+    private lazy var titleGenerator = RelativeTitleGenerator(managementViewModel: personManager)
     
     init(familyTreeViewModel: FamilyTreeViewModel) {
         self.familyTreeViewModel = familyTreeViewModel
         
-        // 监听 FamilyTreeViewModel 的变化
         familyTreeViewModel.$persons
             .sink { [weak self] persons in
                 self?.persons = persons
+                // 当 persons 更新时，预加载所有称谓
+                Task { [weak self] in
+                    await self?.preloadAllTitles()
+                }
             }
             .store(in: &cancellables)
     }
     
+    // 添加预加载称谓的方法
+    private func preloadAllTitles() async {
+        for person in persons where !person.isSelf {
+            if let title = await titleGenerator.generateTitle(for: person) {
+                titleCache[person.id] = title
+            }
+        }
+        objectWillChange.send()
+    }
+    
+    
     func loadData() async {
         do {
+            // 先清空缓存
+            titleCache.removeAll()
+            
+            // 加载数据
             try await familyTreeViewModel.loadData()
+            
+            // 确保所有称谓都已预加载完成
+            for person in persons where !person.isSelf {
+                if let title = await titleGenerator.generateTitle(for: person) {
+                    titleCache[person.id] = title
+                }
+            }
+            
+            // 通知 UI 更新
+            objectWillChange.send()
         } catch {
             errorMessage = "加载数据失败：\(error.localizedDescription)"
         }
@@ -78,4 +110,39 @@ class MembersViewModel: ObservableObject {
     func updateSelectedPerson(_ person: Person) async {
         await familyTreeViewModel.updateSelectedPerson(person)
     }
+    
+    // 添加获取称谓的方法
+    // 修改为异步方法
+    // 添加 titleGenerator 属性
+ 
+    
+    func getRelativeTitle(for person: Person) async -> String? {
+        // 获取自己的人物
+        guard let selfPerson = persons.first(where: { $0.isSelf }) else {
+            return nil
+        }
+        
+        // 如果是自己，返回 nil（因为已经有专门的"自己"标识）
+        if person.id == selfPerson.id {
+            return nil
+        }
+        
+        // 先检查缓存
+        if let cachedTitle = titleCache[person.id] {
+            return cachedTitle
+        }
+        
+        // 如果没有缓存，生成称谓
+        if let title = await titleGenerator.generateTitle(for: person) {
+            // 缓存新生成的称谓
+            await MainActor.run {
+                titleCache[person.id] = title
+            }
+            return title
+        }
+        
+        return nil
+    }
 }
+        
+ 

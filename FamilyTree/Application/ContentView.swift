@@ -24,6 +24,7 @@ struct ContentView: View {
             
             // 修复：使用 MembersView 而不是直接使用 PersonListView
             MembersView(familyTreeViewModel: familyViewModel)
+                .environmentObject(personManager)  // 添加 personManager
                 .tabItem {
                     Label("成员", systemImage: "person.3")
                 }

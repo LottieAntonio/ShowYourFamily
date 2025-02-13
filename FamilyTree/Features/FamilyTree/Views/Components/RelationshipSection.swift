@@ -15,46 +15,41 @@ struct RelationshipSection: View {
     let onAddTap: () -> Void
     let onPersonTap: (Person) -> Void
     @ObservedObject var viewModel: PersonManagementViewModel
+    @Namespace private var animation
+    @State private var selectedPersonId: UUID?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            
-            
             if persons.isEmpty {
-                Button(action: onAddTap) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 5)
-                            .frame(height: 100)
-                            .foregroundStyle(Color.gray.opacity(0.1))
-                            .overlay(alignment: .topLeading) {
-                                VStack {
-                                    HStack {
-                                        Text(title)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                        Button(action: onAddTap) {
-                                            Image(systemName: "plus.circle")
-                                                .font(.callout)
-                                                .foregroundColor(.clear)
-                                        }
-                                    }
-                                    .padding(10)
-                                    Text("点击添加\(title)")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        
-                    }
-                }
+                EmptyRelationView(title: title, onAddTap: onAddTap)
             } else {
-                ZStack() {
-                    RoundedRectangle(cornerRadius: 5)
-                        .frame(height: 100)
-                        .foregroundStyle(Color.gray.opacity(0.1))
-                        .overlay(alignment: .topLeading) {
-                                
+                FilledRelationView(
+                    title: title,
+                    persons: persons,
+                    onAddTap: onAddTap,
+                    onPersonTap: onPersonTap,
+                    viewModel: viewModel,
+                    animation: animation,
+                    selectedPersonId: $selectedPersonId
+                )
+            }
+        }
+    }
+}
+
+// 空状态视图
+private struct EmptyRelationView: View {
+    let title: String
+    let onAddTap: () -> Void
+    
+    var body: some View {
+        Button(action: onAddTap) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5)
+                    .frame(height: 100)
+                    .foregroundStyle(Color.gray.opacity(0.1))
+                    .overlay(alignment: .topLeading) {
+                        VStack {
                             HStack {
                                 Text(title)
                                     .font(.caption)
@@ -63,40 +58,160 @@ struct RelationshipSection: View {
                                 Button(action: onAddTap) {
                                     Image(systemName: "plus.circle")
                                         .font(.callout)
+                                        .foregroundColor(.clear)
                                 }
                             }
                             .padding(10)
-
-                        }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(persons) { person in
-                                PersonCardCompact(
-                                    person: person,
-                                    isSelected: person.id == viewModel.selectedPerson?.id
-                                )
-                                .frame(width: 100, height: 50)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .foregroundStyle(Color.gray.opacity(0.1))
-                                )
-                                .onTapGesture {
-                                    onPersonTap(person)
-                                }
-                            }
+                            Text("点击添加\(title)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                     }
-                    .background(RoundedRectangle(cornerRadius: 5)
-                        .foregroundStyle(Color.gray.opacity(0.1)))
-                    .padding(.horizontal,15)
-                    .padding(.top, 20)
-                }
             }
         }
     }
 }
 
-// 修改紧凑型人物卡片视图
+// 有内容状态视图
+private struct FilledRelationView: View {
+    let title: String
+    let persons: [Person]
+    let onAddTap: () -> Void
+    let onPersonTap: (Person) -> Void
+    @ObservedObject var viewModel: PersonManagementViewModel
+    let animation: Namespace.ID
+    @Binding var selectedPersonId: UUID?
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .frame(height: 100)
+                .foregroundStyle(Color.gray.opacity(0.1))
+                .overlay(alignment: .topLeading) {
+                    HeaderView(title: title, onAddTap: onAddTap)
+                }
+            
+            PersonListView(
+                persons: persons,
+                viewModel: viewModel,
+                animation: animation,
+                selectedPersonId: $selectedPersonId,  // 修改参数名，移除多余的's'
+                onPersonTap: onPersonTap
+            )
+        }
+    }
+}
+
+// 头部视图
+private struct HeaderView: View {
+    let title: String
+    let onAddTap: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Button(action: onAddTap) {
+                Image(systemName: "plus.circle")
+                    .font(.callout)
+            }
+        }
+        .padding(10)
+    }
+}
+
+// 人物列表视图
+private struct PersonListView: View {
+    let persons: [Person]
+    @ObservedObject var viewModel: PersonManagementViewModel
+    let animation: Namespace.ID
+    @Binding var selectedPersonId: UUID?  // 修改变量名，移除多余的's'
+    let onPersonTap: (Person) -> Void
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            PersonRowView(
+                persons: persons,
+                viewModel: viewModel,
+                animation: animation,
+                selectedPersonId: $selectedPersonId,  // 现在可以正确引用
+                onPersonTap: onPersonTap
+            )
+        }
+        .background(RoundedRectangle(cornerRadius: 5)
+            .foregroundStyle(Color.gray.opacity(0.1)))
+        .padding(.horizontal,15)
+        .padding(.top, 20)
+    }
+}
+
+// 新增人物行视图
+private struct PersonRowView: View {
+    let persons: [Person]
+    @ObservedObject var viewModel: PersonManagementViewModel
+    let animation: Namespace.ID
+    @Binding var selectedPersonId: UUID?
+    let onPersonTap: (Person) -> Void
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(persons) { person in
+                PersonItemView(
+                    person: person,
+                    viewModel: viewModel,
+                    animation: animation,
+                    isSelected: selectedPersonId == person.id,
+                    onTap: {
+                        handlePersonTap(person)
+                    }
+                )
+            }
+        }
+    }
+    
+    private func handlePersonTap(_ person: Person) {
+        withAnimation(.spring(duration: 0.5)) {
+            selectedPersonId = person.id
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            selectedPersonId = nil
+            onPersonTap(person)
+        }
+    }
+}
+
+// 新增单个人物项视图
+private struct PersonItemView: View {
+    let person: Person
+    @ObservedObject var viewModel: PersonManagementViewModel
+    let animation: Namespace.ID
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        PersonCardCompact(
+            person: person,
+            isSelected: person.id == viewModel.selectedPerson?.id
+        )
+        .frame(width: 100, height: 50)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .foregroundStyle(Color.gray.opacity(0.1))
+        )
+        .matchedGeometryEffect(
+            id: person.id,
+            in: animation,
+            isSource: !isSelected
+        )
+        .onTapGesture(perform: onTap)
+        .scaleEffect(isSelected ? 1.1 : 1.0)
+    }
+}
+
+// PersonCardCompact 保持不变
 private struct PersonCardCompact: View {
     let person: Person
     let isSelected: Bool
@@ -112,6 +227,7 @@ private struct PersonCardCompact: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
+        .contentTransition(.identity)  // 添加内容过渡
     }
 }
 
