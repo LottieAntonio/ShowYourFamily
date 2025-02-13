@@ -1,5 +1,17 @@
 import SwiftUI
 
+// 添加动画配置
+private extension Animation {
+    static let personTransition = spring(duration: 0.5, bounce: 0.3)
+    static let cardTransition = spring(duration: 0.3)
+    static let flyTransition = Animation.interpolatingSpring(
+        mass: 1.0,
+        stiffness: 100,
+        damping: 15,
+        initialVelocity: 0.5
+    )
+}
+
 struct FamilyTreeView: View {
     @StateObject private var viewModel: FamilyTreeViewModel
     @StateObject private var personManager: PersonManagementViewModel
@@ -7,6 +19,9 @@ struct FamilyTreeView: View {
     @State private var selectedMode: PersonCardMode = .view
     @State private var selectedPersonOffset: CGSize = .zero
     @State private var isTransitioning = false
+    @State private var selectedPersonId: UUID?
+    @State private var transitionOffset: CGSize = .zero
+    
     @Namespace private var animation
     init() {
         let familyViewModel = FamilyTreeViewModel()
@@ -44,192 +59,317 @@ struct FamilyTreeView: View {
                 } else {
                     VStack(spacing: 20) {
                         if let currentPerson = personManager.selectedPerson {
-                            Group {
-                                // 添加切换动画
-                                VStack(alignment: .center) {
-                                    HStack(alignment: .top) {
-                                        // 父亲关系区域
-                                        RelationshipSection(
-                                            title: "父亲",
-                                            persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.father),
-                                            onAddTap: {
-                                                Task {
-                                                    await MainActor.run {
-                                                        withAnimation(.spring(duration: 0.3)) {
-                                                            showingPersonCard = true
-                                                        }
-                                                    }
-                                                    await showAddRelation(
-                                                        for: currentPerson,
-                                                        type: RelationType.father,
-                                                        defaultLastName: currentPerson.lastName,
-                                                        defaultGender: Person.Gender.male
-                                                    )
-                                                }
-                                            },
-                                            onPersonTap: { person in
-                                                withAnimation(.spring(duration: 0.3)) {
-                                                    personManager.selectedPerson = person
-                                                    showingPersonCard = false
-                                                }
-                                            },
-                                            viewModel: personManager
-                                        )
-                                        
-                                        // 母亲关系区域
-                                        RelationshipSection(
-                                            title: "母亲",
-                                            persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.mother),
-                                            onAddTap: {
-                                                Task {
-                                                    await MainActor.run {
-                                                        withAnimation(.spring(duration: 0.3)) {
-                                                            showingPersonCard = true
-                                                        }
-                                                    }
-                                                    await showAddRelation(
-                                                        for: currentPerson,
-                                                        type: RelationType.mother,
-                                                        defaultGender: Person.Gender.female
-                                                    )
-                                                }
-                                            },
-                                            onPersonTap: { person in
-                                                withAnimation(.spring(duration: 0.5)) {
-                                                    isTransitioning = true
-                                                }
-                                                
-                                                // 延迟切换人物，等待动画完成
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                                    withAnimation(.spring(duration: 0.3)) {
-                                                        personManager.selectedPerson = person
-                                                        showingPersonCard = false
-                                                        isTransitioning = false
-                                                    }
-                                                }
-                                            },
-                                            viewModel: personManager
-                                        )
-                                    }
-                                    // 配偶关系区域
+                            Grid(alignment: .center, horizontalSpacing: 10, verticalSpacing: 10) {
+                                // 第一行：父母
+                                GridRow {
+                                    // 父亲关系区域
                                     RelationshipSection(
-                                        title: "配偶",
-                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.spouse),
+                                        title: "父亲",
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .father),
                                         onAddTap: {
                                             Task {
-                                                let defaultSpouseGender = currentPerson.gender == .male ? Person.Gender.female : Person.Gender.male
+                                                await MainActor.run {
+                                                    withAnimation(.spring(duration: 0.3)) {
+                                                        showingPersonCard = true
+                                                    }
+                                                }
                                                 await showAddRelation(
                                                     for: currentPerson,
-                                                    type: RelationType.spouse,
+                                                    type: .father,
+                                                    defaultLastName: currentPerson.lastName,
+                                                    defaultGender: .male
+                                                )
+                                            }
+                                        },
+                                        onPersonTap: { person in
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
+                                                }
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
+                                                }
+                                            }
+                                        },
+                                        viewModel: personManager
+                                    )
+                                    
+                                    // 母亲关系区域
+                                    RelationshipSection(
+                                        title: "母亲",
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .mother),
+                                        onAddTap: {
+                                            Task {
+                                                await MainActor.run {
+                                                    withAnimation(.spring(duration: 0.3)) {
+                                                        showingPersonCard = true
+                                                    }
+                                                }
+                                                await showAddRelation(
+                                                    for: currentPerson,
+                                                    type: .mother,
+                                                    defaultGender: .female
+                                                )
+                                            }
+                                        },
+                                        // 修改母亲关系区域的 onPersonTap
+                                        onPersonTap: { person in
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
+                                                }
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
+                                                }
+                                            }
+                                        },
+                                        viewModel: personManager
+                                    )
+                                    .matchedGeometryEffect(
+                                           id: "container-\(selectedPersonId ?? UUID())",
+                                           in: animation,
+                                           properties: .position,
+                                           isSource: true
+                                       )
+                                }
+                                
+                                // 第二行：配偶
+                                GridRow {
+                                    RelationshipSection(
+                                        title: "配偶",
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .spouse),
+                                        onAddTap: {
+                                            Task {
+                                                let defaultSpouseGender = currentPerson.gender == .male ? Person.Gender.female : .male
+                                                await showAddRelation(
+                                                    for: currentPerson,
+                                                    type: .spouse,
                                                     defaultGender: defaultSpouseGender
                                                 )
                                             }
                                         },
                                         onPersonTap: { person in
-                                            personManager.selectedPerson = person
-                                            showingPersonCard = false
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
+                                                }
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
+                                                }
+                                            }
                                         },
                                         viewModel: personManager
                                     )
+                                    .gridCellColumns(2)
                                 }
                                 
-                                // 当前人物卡片
-                                ZStack(alignment: .center) {
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .foregroundStyle(Color.gray.opacity(0.1))
+                                // 第三行：当前人物
+                                GridRow {
+                                    ZStack(alignment: .center) {
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .foregroundStyle(Color.gray.opacity(0.1))
+                                            .shadow(color: .gray.opacity(0.2), radius: 5, x: 0, y: 2)
                                         
-                                    PersonCard(
-                                        person: currentPerson,
-                                        mode: .view,
-                                        managementViewModel: personManager
-                                    )
-                                    .id(currentPerson.id)
-                                }
-                                .matchedGeometryEffect(id: currentPerson.id, in: animation, isSource: true)
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 5)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                        .scaleEffect(currentPerson.isSelf ? 1.02 : 1.0)
-                                        .opacity(currentPerson.isSelf ? 0.8 : 0.3)
-                                        .animation(.easeInOut(duration: 1.5).repeatForever(), value: currentPerson.isSelf)
-                                }
-                                .padding(.vertical, -10)
-                                .onTapGesture {
-                                    withAnimation(.spring(duration: 0.3)) {
-                                        personManager.selectedPerson = currentPerson
-                                        selectedMode = .edit
-                                        showingPersonCard = true
+                                        PersonCard(
+                                            person: currentPerson,
+                                            mode: .view,
+                                            managementViewModel: personManager
+                                        )
+                                        .id(currentPerson.id)
+                                    }
+                                    .gridCellColumns(2)
+                                    .opacity(isTransitioning ? 0.3 : 1)  // 修改透明度
+                                    .scaleEffect(isTransitioning ? 0.8 : 1)  // 添加缩放效果
+                                    .onTapGesture {
+                                        withAnimation(.personTransition) {
+                                            personManager.selectedPerson = currentPerson
+                                            selectedMode = .edit
+                                            showingPersonCard = true
+                                        }
                                     }
                                 }
                                 
-                                VStack() {
-                                    // 子女关系区域
+                                // 第四行：子女
+                                GridRow {
                                     RelationshipSection(
                                         title: "子女",
-                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.child),
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .child),
                                         onAddTap: {
                                             Task {
                                                 await showAddRelation(
                                                     for: currentPerson,
-                                                    type: RelationType.child,
+                                                    type: .child,
                                                     defaultLastName: currentPerson.lastName
                                                 )
                                             }
                                         },
                                         onPersonTap: { person in
-                                            personManager.selectedPerson = person
-                                            showingPersonCard = false
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
+                                                }
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
+                                                }
+                                            }
                                         },
                                         viewModel: personManager
                                     )
-                                    HStack(alignment: .top) {
-                                        RelationshipSection(
-                                            title: "兄弟",
-                                            persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.brother),
-                                            onAddTap: {
-                                                Task {
-                                                    await showAddRelation(
-                                                        for: currentPerson,
-                                                        type: RelationType.brother,
-                                                        defaultLastName: currentPerson.lastName,
-                                                        defaultGender: Person.Gender.male
-                                                    )
+                                    .gridCellColumns(2)
+                                }
+                                
+                                // 第五行：兄弟姐妹
+                                GridRow {
+                                    RelationshipSection(
+                                        title: "兄弟",
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .brother),
+                                        onAddTap: {
+                                            Task {
+                                                await showAddRelation(
+                                                    for: currentPerson,
+                                                    type: .brother,
+                                                    defaultLastName: currentPerson.lastName,
+                                                    defaultGender: .male
+                                                )
+                                            }
+                                        },
+                                        onPersonTap: { person in
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
                                                 }
-                                            },
-                                            onPersonTap: { person in
-                                                personManager.selectedPerson = person
-                                                showingPersonCard = false
-                                            },
-                                            viewModel: personManager
-                                        )
-                                        
-                                        RelationshipSection(
-                                            title: "姐妹",
-                                            persons: personManager.getRelatedPersons(for: currentPerson, relationType: RelationType.sister),
-                                            onAddTap: {
-                                                Task {
-                                                    await showAddRelation(
-                                                        for: currentPerson,
-                                                        type: RelationType.sister,
-                                                        defaultLastName: currentPerson.lastName,
-                                                        defaultGender: Person.Gender.female
-                                                    )
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
                                                 }
-                                            },
-                                            onPersonTap: { person in
-                                                personManager.selectedPerson = person
-                                                showingPersonCard = false
-                                            },
-                                            viewModel: personManager
-                                        )
-                                    }
+                                            }
+                                        },
+                                        viewModel: personManager
+                                    )
+                                    
+                                    RelationshipSection(
+                                        title: "姐妹",
+                                        persons: personManager.getRelatedPersons(for: currentPerson, relationType: .sister),
+                                        onAddTap: {
+                                            Task {
+                                                await showAddRelation(
+                                                    for: currentPerson,
+                                                    type: .sister,
+                                                    defaultLastName: currentPerson.lastName,
+                                                    defaultGender: .female
+                                                )
+                                            }
+                                        },
+                                        onPersonTap: { person in
+                                            selectedPersonId = person.id
+                                            
+                                            // 第一阶段：上升并缩小
+                                            withAnimation(.flyTransition) {
+                                                transitionOffset = CGSize(width: 0, height: -50)
+                                                isTransitioning = true
+                                            }
+                                            
+                                            // 第二阶段：水平移动
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = CGSize(width: UIScreen.main.bounds.width * 0.3, height: -50)
+                                                }
+                                            }
+                                            
+                                            // 第三阶段：下降到目标位置
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                withAnimation(.flyTransition) {
+                                                    transitionOffset = .zero
+                                                    personManager.selectedPerson = person
+                                                    showingPersonCard = false
+                                                    isTransitioning = false
+                                                }
+                                            }
+                                        },
+                                        viewModel: personManager
+                                    )
                                 }
                             }
-                            .transition(.asymmetric(
-                               insertion: .move(edge: .trailing).combined(with: .opacity),
-                               removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
-                               .animation(.spring(duration: 0.3), value: currentPerson.id)
+                            
                         }
                     }
                     .padding()

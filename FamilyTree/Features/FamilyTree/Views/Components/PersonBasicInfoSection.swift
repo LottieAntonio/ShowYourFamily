@@ -40,9 +40,9 @@ struct PersonBasicInfoSection: View {
     @State private var showingSetSelfAlert = false
     
     var body: some View {
-        ZStack(alignment: viewModel.isEditable ? .top : .center) {
+        ZStack(alignment: viewModel.isEditable ? .top : .bottom) {
             RoundedRectangle(cornerRadius: 5)
-                .foregroundStyle(Color.red.opacity(0.1))
+                .foregroundStyle(Color.secondary.opacity(0.1))
                 
             VStack(alignment: .center, spacing: 20) {
                 
@@ -51,9 +51,12 @@ struct PersonBasicInfoSection: View {
                         Button {
                             
                         } label: {
-                            Image(systemName: "camera.circle.fill")
+                            Text("🦸🏻‍♂️")
                                 .foregroundColor(.gray)
                                 .font(.system(size: 60))
+                                .background {
+                                    RoundedRectangle(cornerRadius: 10)
+                                }
                         }
                         
                         VStack(alignment: .leading) {

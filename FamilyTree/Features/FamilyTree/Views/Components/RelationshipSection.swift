@@ -194,7 +194,8 @@ private struct PersonItemView: View {
     var body: some View {
         PersonCardCompact(
             person: person,
-            isSelected: person.id == viewModel.selectedPerson?.id
+            isSelected: person.id == viewModel.selectedPerson?.id,
+            animation: animation  // 添加这行
         )
         .frame(width: 100, height: 50)
         .background(
@@ -207,7 +208,7 @@ private struct PersonItemView: View {
             isSource: !isSelected
         )
         .onTapGesture(perform: onTap)
-        .scaleEffect(isSelected ? 1.1 : 1.0)
+        .scaleEffect(isSelected ? 1.3 : 1.0)
     }
 }
 
@@ -215,19 +216,21 @@ private struct PersonItemView: View {
 private struct PersonCardCompact: View {
     let person: Person
     let isSelected: Bool
+    let animation: Namespace.ID  // 添加这行
     
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: person.gender == .male ? "person.circle.fill" : "person.circle")
+            Text(person.gender == .male ? "👨" : "👩")
                 .font(.title2)
-                .foregroundStyle(person.gender == .male ? .blue : .pink)
             
             Text("\(person.lastName)\(person.firstName)")
                 .font(.caption)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .contentTransition(.identity)  // 添加内容过渡
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentTransition(.identity)
+        .matchedGeometryEffect(id: person.id, in: animation)  // 添加这行
     }
 }
 

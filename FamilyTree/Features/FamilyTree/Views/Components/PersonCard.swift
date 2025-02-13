@@ -39,9 +39,13 @@ struct PersonCard: View {
                     print("🔍 点击设置自己按钮")
                     showingSetSelfAlert = true
                 } label: {
-                    Label("设置为自己", systemImage: "person.crop.circle.badge.checkmark")
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 5)
+                            .foregroundStyle(Color.red.opacity(0.1))
+                            .frame(height: 50)
+                        Label("设置为自己", systemImage: "person.crop.circle.badge.checkmark")
+                    }
                 }
-                .padding(.top)
             }
             
             if viewModel.mode == .edit {
