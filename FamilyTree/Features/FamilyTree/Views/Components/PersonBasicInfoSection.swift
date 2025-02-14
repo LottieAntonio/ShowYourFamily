@@ -41,127 +41,153 @@ struct PersonBasicInfoSection: View {
     
     var body: some View {
         ZStack(alignment: viewModel.isEditable ? .top : .bottom) {
-            RoundedRectangle(cornerRadius: 5)
-                .foregroundStyle(Color.secondary.opacity(0.1))
-                
-            VStack(alignment: .center, spacing: 20) {
-                
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.clear)
+            VStack (alignment: .center, spacing: 20) {
                 if !viewModel.isEditable {
-                    HStack(spacing: 10) {
-                        Button {
-                            
-                        } label: {
-                            Text("🦸🏻‍♂️")
-                                .foregroundColor(.gray)
-                                .font(.system(size: 60))
-                                .background {
-                                    RoundedRectangle(cornerRadius: 10)
-                                }
-                        }
-                        
-                        VStack(alignment: .leading) {
-                            //name
-                            Text("\(viewModel.state.basicInfo.lastName)\(viewModel.state.basicInfo.firstName)")
-                                .font(.title2)
-                                .fontWeight(.medium)
-                            
-                            // 修改称呼显示逻辑
-                            if viewModel.isSelfPerson {
-                                Text("自己")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            } else if !notes.isEmpty {
-                                Text(viewModel.state.basicInfo.notes)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text(viewModel.displayTitle)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    VStack{
-                        Button {
-                            
-                        } label: {
-                            Image(systemName: "camera.circle.fill")
-                                .foregroundColor(.gray)
-                                .font(.system(size: 80))
-                        }
-                        HStack {
-                            VStack(alignment: .leading) {
-                                TextField("姓", text: $lastName)
-                                    .padding(8)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(8)
-                                    .onChange(of: lastName) { _, newValue in
-                                        Task {
-                                            await viewModel.updateLastName(newValue)
-                                        }
-                                    }
-                                TextField("名", text: $firstName)
-                                    .padding(8)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(8)
-                                    .onChange(of: firstName) { _, newValue in
-                                        Task {
-                                            await viewModel.updateFirstName(newValue)
-                                        }
-                                    }
-                            }
-                            TextField("自定义称呼（留空则自动生成）", text: $notes, axis: .vertical)
-                                .lineLimit(3...6)
-                                .padding(8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
-                                .onChange(of: notes) { _, newValue in
-                                    Task {
-                                        await viewModel.updateNotes(newValue)
-                                    }
-                                }
-                            
-                        }
-                   
-                        Picker("性别", selection: $gender) {
-                            Text("男").tag(Person.Gender.male)
-                            Text("女").tag(Person.Gender.female)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .onChange(of: gender) { _, newValue in
-                            Task {
-                                await viewModel.updateGender(newValue)
-                            }
-                        }
-
-                        DatePicker(
-                            "出生日期",
-                            selection: $birthDate,
-                            displayedComponents: .date
-                        )
-                        .environment(\.locale, Locale(identifier: "zh_CN"))
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .onChange(of: birthDate) { _, newValue in
-                            Task {
-                                await viewModel.updateBirthDate(newValue)
-                            }
-                        }
-                    }
+                    FamilySealView(
+                        lastName: viewModel.state.basicInfo.lastName,
+                        totalMembers: viewModel.personManagementViewModel.persons.count
+                    )
                 }
-    
+
+                VStack {
+                    
+                    if !viewModel.isEditable {
+                        HStack(spacing: 10) {
+                            Button {
+                                // 后续添加头像选择功能
+                            } label: {
+                                PersonAvatarView(
+                                    person: viewModel.currentPerson ?? Person(firstName: "", lastName: "", gender: .male),
+                                    size: 60,
+                                    type: nil,
+                                    isEditable: false
+                                )
+                            }
+                            
+                            VStack(alignment: .leading) {
+                                Text("\(viewModel.state.basicInfo.lastName)\(viewModel.state.basicInfo.firstName)")
+                                    .font(.title2)
+                                    .fontWeight(.medium)
+                                    .lineLimit(1)
+                                
+                                if viewModel.isSelfPerson {
+                                    let notes = "自己"
+                                    Text(notes)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                } else if !notes.isEmpty {
+                                    Text(viewModel.state.basicInfo.notes)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .lineLimit(nil)
+                                } else {
+                                    Text(viewModel.displayTitle)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .lineLimit(nil)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.familyTheme.secondary.opacity(0.3))
+                                .shadow(
+                                    color: Color.familyTheme.primary.opacity(0.10),
+                                    radius: 8,
+                                    x: 0,
+                                    y: 4
+                                )
+                        }
+                    } else {
+                        VStack{
+                            Button {
+                                // 后续添加头像选择功能
+                            } label: {
+                                PersonAvatarView(
+                                    person: viewModel.currentPerson ?? Person(firstName: "", lastName: "", gender: .male),
+                                    size: 80,
+                                    type: nil,
+                                    isEditable: true
+                                )
+                            }
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    TextField("姓", text: $lastName)
+                                        .padding(8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                        .onChange(of: lastName) { _, newValue in
+                                            Task {
+                                                await viewModel.updateLastName(newValue)
+                                            }
+                                        }
+                                    TextField("名", text: $firstName)
+                                        .padding(8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                        .onChange(of: firstName) { _, newValue in
+                                            Task {
+                                                await viewModel.updateFirstName(newValue)
+                                            }
+                                        }
+                                }
+                                TextField("自定义称呼（留空则自动生成）", text: $notes, axis: .vertical)
+                                    .lineLimit(3...6)
+                                    .padding(8)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
+                                    .onChange(of: notes) { _, newValue in
+                                        Task {
+                                            await viewModel.updateNotes(newValue)
+                                        }
+                                    }
+                                
+                            }
+                            
+                            Picker("性别", selection: $gender) {
+                                Text("男").tag(Person.Gender.male)
+                                Text("女").tag(Person.Gender.female)
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                            .onChange(of: gender) { _, newValue in
+                                Task {
+                                    await viewModel.updateGender(newValue)
+                                }
+                            }
+                            
+                            DatePicker(
+                                "出生日期",
+                                selection: $birthDate,
+                                displayedComponents: .date
+                            )
+                            .environment(\.locale, Locale(identifier: "zh_CN"))
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                            .onChange(of: birthDate) { _, newValue in
+                                Task {
+                                    await viewModel.updateBirthDate(newValue)
+                                }
+                            }
+                        }
+                        .padding(30)
+                    }
+                    
+                }
             }
-            .padding(30)
         }
         .onReceive(viewModel.$state) { newState in
             // 当 ViewModel 状态更新时，同步本地状态

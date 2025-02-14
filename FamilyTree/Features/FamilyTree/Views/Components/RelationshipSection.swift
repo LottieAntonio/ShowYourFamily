@@ -15,94 +15,128 @@ struct RelationshipSection: View {
     let onAddTap: () -> Void
     let onPersonTap: (Person) -> Void
     @ObservedObject var viewModel: PersonManagementViewModel
-    @Namespace private var animation
-    @State private var selectedPersonId: UUID?
+    let animation: Namespace.ID
+    @Binding var selectedPersonId: UUID?
+    let type: RelationType
+    
+    // MARK: - Body
+    
+    // 添加计算属性来确定区域大小
+    private var sectionSize: CGSize {
+        let screenWidth = UIScreen.main.bounds.width
+        let padding: CGFloat = 40
+        let minWidth: CGFloat = 150 // 设置最小宽度
+        
+        switch type {
+        case .spouse, .child:
+            return CGSize(width: max(screenWidth, minWidth), height: 100)
+        default:
+            let calculatedWidth = (screenWidth - padding) / 2
+            return CGSize(width: max(calculatedWidth, minWidth), height: 100)
+        }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            HeaderView(title: title, onAddTap: onAddTap)
+            
             if persons.isEmpty {
-                EmptyRelationView(title: title, onAddTap: onAddTap)
+                EmptyStateView(title: title, onAddTap: onAddTap)
             } else {
-                FilledRelationView(
-                    title: title,
-                    persons: persons,
-                    onAddTap: onAddTap,
-                    onPersonTap: onPersonTap,
-                    viewModel: viewModel,
-                    animation: animation,
-                    selectedPersonId: $selectedPersonId
-                )
-            }
-        }
-    }
-}
-
-// 空状态视图
-private struct EmptyRelationView: View {
-    let title: String
-    let onAddTap: () -> Void
-    
-    var body: some View {
-        Button(action: onAddTap) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 5)
-                    .frame(height: 100)
-                    .foregroundStyle(Color.gray.opacity(0.1))
-                    .overlay(alignment: .topLeading) {
-                        VStack {
-                            HStack {
-                                Text(title)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Button(action: onAddTap) {
-                                    Image(systemName: "plus.circle")
-                                        .font(.callout)
-                                        .foregroundColor(.clear)
-                                }
-                            }
-                            .padding(10)
-                            Text("点击添加\(title)")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
+                ScrollView(persons.count == 1 ? .vertical : .horizontal, showsIndicators: false) {
+                    HStack {
+                        PersonListView(
+                            persons: persons,
+                            viewModel: viewModel,
+                            animation: animation,
+                            selectedPersonId: $selectedPersonId,
+                            onPersonTap: onPersonTap,
+                            type: type
+                        )
                     }
+                }
             }
         }
+        .padding(8)
+        .frame(
+            width: type == .spouse || type == .child ? .infinity : sectionSize.width,
+            height: sectionSize.height,
+            alignment: .top
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.regularMaterial)
+                .shadow(
+                    color: Color.familyTheme.primary.opacity(0.15),
+                    radius: 8,
+                    x: 0,
+                    y: 4
+                )
+        )
     }
 }
 
-// 有内容状态视图
-private struct FilledRelationView: View {
-    let title: String
-    let persons: [Person]
-    let onAddTap: () -> Void
-    let onPersonTap: (Person) -> Void
+// 修改 PersonItemView 以确保内容紧凑
+private struct PersonItemView: View {
+    let person: Person
     @ObservedObject var viewModel: PersonManagementViewModel
     let animation: Namespace.ID
-    @Binding var selectedPersonId: UUID?
+    let isSelected: Bool
+    let type: RelationType
+    let onTap: () -> Void
     
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 5)
-                .frame(height: 100)
-                .foregroundStyle(Color.gray.opacity(0.1))
-                .overlay(alignment: .topLeading) {
-                    HeaderView(title: title, onAddTap: onAddTap)
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                // 添加头像
+                Circle()
+                    .fill(Color.familyTheme.gradientFor(type))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(person.name.prefix(1))
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.white)
+                    )
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(person.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(person.birthDate?.formatted(date: .abbreviated, time: .omitted) ?? "未设置生日")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-            
-            PersonListView(
-                persons: persons,
-                viewModel: viewModel,
-                animation: animation,
-                selectedPersonId: $selectedPersonId,  // 修改参数名，移除多余的's'
-                onPersonTap: onPersonTap
+                Spacer()
+//                Image(systemName: "chevron.right")
+//                    .foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        Color.familyTheme.gradientFor(type)
+                            .opacity(0.15)
+                    )
+                    .shadow(
+                        color: Color.familyTheme.primary.opacity(0.1),
+                        radius: 5,
+                        x: 0,
+                        y: 2
+                    )
             )
         }
+        .buttonStyle(.plain)
+        .matchedGeometryEffect(
+            id: person.id,
+            in: animation,
+            isSource: !isSelected
+        )
     }
 }
 
-// 头部视图
+// MARK: - Subviews
 private struct HeaderView: View {
     let title: String
     let onAddTap: () -> Void
@@ -111,63 +145,52 @@ private struct HeaderView: View {
         HStack {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(Color.familyTheme.primary)
             Spacer()
             Button(action: onAddTap) {
-                Image(systemName: "plus.circle")
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(Color.familyTheme.primary)
                     .font(.callout)
             }
         }
-        .padding(10)
     }
 }
 
-// 人物列表视图
-private struct PersonListView: View {
-    let persons: [Person]
-    @ObservedObject var viewModel: PersonManagementViewModel
-    let animation: Namespace.ID
-    @Binding var selectedPersonId: UUID?  // 修改变量名，移除多余的's'
-    let onPersonTap: (Person) -> Void
+private struct EmptyStateView: View {
+    let title: String
+    let onAddTap: () -> Void
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            PersonRowView(
-                persons: persons,
-                viewModel: viewModel,
-                animation: animation,
-                selectedPersonId: $selectedPersonId,  // 现在可以正确引用
-                onPersonTap: onPersonTap
-            )
+        Button(action: onAddTap) {
+            HStack {
+                Text("点击添加\(title)")
+                    .font(.caption)
+                    .foregroundStyle(Color.familyTheme.primary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+           
         }
-        .background(RoundedRectangle(cornerRadius: 5)
-            .foregroundStyle(Color.gray.opacity(0.1)))
-        .padding(.horizontal,15)
-        .padding(.top, 20)
     }
 }
 
-// 新增人物行视图
-private struct PersonRowView: View {
+private struct PersonListView: View {
     let persons: [Person]
     @ObservedObject var viewModel: PersonManagementViewModel
     let animation: Namespace.ID
     @Binding var selectedPersonId: UUID?
     let onPersonTap: (Person) -> Void
+    let type: RelationType
     
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(persons) { person in
-                PersonItemView(
-                    person: person,
-                    viewModel: viewModel,
-                    animation: animation,
-                    isSelected: selectedPersonId == person.id,
-                    onTap: {
-                        handlePersonTap(person)
-                    }
-                )
-            }
+        ForEach(persons) { person in
+            PersonItemView(
+                person: person,
+                viewModel: viewModel,
+                animation: animation,
+                isSelected: selectedPersonId == person.id,
+                type: type,
+                onTap: { handlePersonTap(person) }
+            )
         }
     }
     
@@ -183,68 +206,20 @@ private struct PersonRowView: View {
     }
 }
 
-// 新增单个人物项视图
-private struct PersonItemView: View {
-    let person: Person
-    @ObservedObject var viewModel: PersonManagementViewModel
-    let animation: Namespace.ID
-    let isSelected: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        PersonCardCompact(
-            person: person,
-            isSelected: person.id == viewModel.selectedPerson?.id,
-            animation: animation  // 添加这行
-        )
-        .frame(width: 100, height: 50)
-        .background(
-            RoundedRectangle(cornerRadius: 5)
-                .foregroundStyle(Color.gray.opacity(0.1))
-        )
-        .matchedGeometryEffect(
-            id: person.id,
-            in: animation,
-            isSource: !isSelected
-        )
-        .onTapGesture(perform: onTap)
-        .scaleEffect(isSelected ? 1.3 : 1.0)
-    }
-}
-
-// PersonCardCompact 保持不变
-private struct PersonCardCompact: View {
-    let person: Person
-    let isSelected: Bool
-    let animation: Namespace.ID  // 添加这行
-    
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(person.gender == .male ? "👨" : "👩")
-                .font(.title2)
-            
-            Text("\(person.lastName)\(person.firstName)")
-                .font(.caption)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentTransition(.identity)
-        .matchedGeometryEffect(id: person.id, in: animation)  // 添加这行
-    }
-}
-
-// 预览代码
+// MARK: - Previews
 #Preview("关系区域") {
     let familyViewModel = FamilyTreeViewModel()
     RelationshipSection(
-        title: "父亲",  // 修改标题
+        title: "父亲",
         persons: [
-            Person(firstName: "三", lastName: "张", gender: .male)  // 只保留一个示例人物
+            Person(firstName: "三", lastName: "张", gender: .male)
         ],
         onAddTap: {},
         onPersonTap: { _ in },
-        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
+        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel),
+        animation: Namespace().wrappedValue,
+        selectedPersonId: .constant(nil),
+        type: .father
     )
     .padding()
 }
@@ -256,7 +231,10 @@ private struct PersonCardCompact: View {
         persons: [],
         onAddTap: {},
         onPersonTap: { _ in },
-        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
+        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel),
+        animation: Namespace().wrappedValue,
+        selectedPersonId: .constant(nil),
+        type: .father
     )
     .padding()
 }

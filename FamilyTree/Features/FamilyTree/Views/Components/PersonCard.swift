@@ -32,22 +32,6 @@ struct PersonCard: View {
         VStack() {
             PersonBasicInfoSection(viewModel: viewModel)
 
-            
-            // 只在查看模式且当前人物不是自己时显示设置自己按钮
-            if viewModel.mode == .view && !viewModel.isSelfPerson {
-                Button {
-                    print("🔍 点击设置自己按钮")
-                    showingSetSelfAlert = true
-                } label: {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 5)
-                            .foregroundStyle(Color.red.opacity(0.1))
-                            .frame(height: 50)
-                        Label("设置为自己", systemImage: "person.crop.circle.badge.checkmark")
-                    }
-                }
-            }
-            
             if viewModel.mode == .edit {
                 Button(role: .destructive) {
                     showingDeleteAlert = true
@@ -58,7 +42,6 @@ struct PersonCard: View {
                 .padding(.top)
             }
         }
-        .padding()
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if viewModel.mode != .view {
