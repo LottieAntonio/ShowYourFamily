@@ -3,8 +3,10 @@ import Foundation
 class AncestorRelationHandler: BaseRelationHandler {
     func findAncestorTitle(from source: Person, to target: Person) -> String? {
         let path = findRelationPath(from: source.id, to: target.id)
-        
-        guard !path.isEmpty else { return nil }
+        guard !path.isEmpty else { 
+            // 如果没有直接路径，尝试查找继祖父母关系
+            return findGrandparentSpouseTitle(from: source, to: target)
+        }
         
         var currentId = source.id
         var generation = 0
@@ -27,8 +29,6 @@ class AncestorRelationHandler: BaseRelationHandler {
                 }
                 currentId = relation.fromPerson
                 generation += 1
-            } else {
-                return findGrandparentSpouseTitle(from: source, to: target)
             }
         }
         
