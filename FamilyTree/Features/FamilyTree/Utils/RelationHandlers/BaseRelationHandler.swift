@@ -180,12 +180,20 @@ class BaseRelationHandler {
                                           motherChildren: [UUID: Set<UUID>]) -> Bool {
            let people = Set([source, target])
            
-           // 检查是否存在共同的父亲和母亲
-           let commonFathers = fatherChildren.filter { $0.value.isSuperset(of: people) }
-           let commonMothers = motherChildren.filter { $0.value.isSuperset(of: people) }
+        // 检查是否存在共同的父亲或母亲
+           for (_, children) in fatherChildren {
+               if children.contains(source) && children.contains(target) {
+                   return true
+               }
+           }
            
-           // 只要有共同的父亲或母亲就是兄弟姐妹
-           return commonFathers.count > 0 || commonMothers.count > 0
+           for (_, children) in motherChildren {
+               if children.contains(source) && children.contains(target) {
+                   return true
+               }
+           }
+           
+           return false
        }
    
     private func validateAncestorPath(_ path: [Relationship]) -> Bool {
@@ -275,17 +283,13 @@ class BaseRelationHandler {
     // 修改 getUncleAuntInfo 方法
     private func getUncleAuntInfo(_ path: [Relationship]) -> [(person: UUID, type: RelationType)] {
         var relatives = [(person: UUID, type: RelationType)]()
-        var processedSiblings = Set<UUID>()
-        
         let (personsMap, childToParentMap, parentToChildMap) = createParentMaps()
         
-        // 获取路径中涉及的所有人
         let peopleInPath = Set(path.flatMap { [$0.fromPerson, $0.toPerson] })
         
-        // 查找涉及路径中人物的父母关系
         let parentRelations = relationships.filter { relation in
-            guard peopleInPath.contains(relation.fromPerson),
-                  (relation.type == .father || relation.type == .mother) else { return false }
+            guard peopleInPath.contains(relation.fromPerson) || peopleInPath.contains(relation.toPerson) else { return false }
+            guard relation.type == .father || relation.type == .mother else { return false }
             
             if let person = personsMap[relation.toPerson] {
                 return (relation.type == .mother && person.gender == .female) ||
@@ -299,24 +303,17 @@ class BaseRelationHandler {
             
             relatives.append((parentRelation.toPerson, parentRelation.type))
             
-            let parentId = parentRelation.toPerson
-            
-            // 查找父母的父母（祖父母）
-            if let grandParentRelations = childToParentMap[parentId] {
+            if let grandParentRelations = childToParentMap[parentRelation.toPerson] {
                 for grandParentRelation in grandParentRelations {
                     let grandParentId = grandParentRelation.toPerson
                     
-                    // 查找祖父母的所有子女（即父母的兄弟姐妹）
-                    if let parentSiblings = parentToChildMap[grandParentId] {
-                        for siblingRelation in parentSiblings {
-                            let siblingId = siblingRelation.fromPerson
-                            
-                            if siblingId != parentId && !processedSiblings.contains(siblingId) {
-                                if let sibling = personsMap[siblingId] {
-                                    let correctType: RelationType = sibling.gender == .male ? .brother : .sister
-                                    relatives.append((siblingId, correctType))
-                                    processedSiblings.insert(siblingId)
-                                }
+                    if let uncleAunts = parentToChildMap[grandParentId] {
+                        for uncleAunt in uncleAunts {
+                            let uncleAuntId = uncleAunt.fromPerson
+                            if uncleAuntId != parentRelation.toPerson,
+                               let sibling = personsMap[uncleAuntId] {
+                                let correctType: RelationType = sibling.gender == .male ? .brother : .sister
+                                relatives.append((uncleAuntId, correctType))
                             }
                         }
                     }
@@ -354,25 +351,44 @@ class BaseRelationHandler {
     
     // 修改返回类型，返回父母的子女集合
     func getSiblingInfo(_ path: [Relationship]) -> (fatherChildren: [UUID: Set<UUID>], motherChildren: [UUID: Set<UUID>]) {
-            let (personsMap, _, parentToChildMap) = createParentMaps()
-            
-            var fatherChildren: [UUID: Set<UUID>] = [:]
-            var motherChildren: [UUID: Set<UUID>] = [:]
-            
-            // 遍历所有父母关系
+        let (personsMap, childToParentMap, parentToChildMap) = createParentMaps()
+        var fatherChildren: [UUID: Set<UUID>] = [:]
+        var motherChildren: [UUID: Set<UUID>] = [:]
+        
+        // 如果传入了父母关系，就找到这个父母的父母（祖父母）的所有子女
+        if let parentRelation = path.first {
+            let parentId = parentRelation.toPerson
+            // 找到父母的父母（祖父母）
+            if let grandParentRelations = childToParentMap[parentId] {
+                for grandParentRelation in grandParentRelations {
+                    let grandParentId = grandParentRelation.toPerson
+                    guard let grandParent = personsMap[grandParentId] else { continue }
+                    
+                    // 找到祖父母的所有子女（即父母的兄弟姐妹）
+                    if let parentSiblings = parentToChildMap[grandParentId] {
+                        let children = Set(parentSiblings.map { $0.fromPerson })
+                        if grandParent.gender == .male {
+                            fatherChildren[grandParentId] = children
+                        } else {
+                            motherChildren[grandParentId] = children
+                        }
+                    }
+                }
+            }
+        } else {
+            // 如果没有传入父母关系，返回所有父母的子女集合
             for (parentId, relations) in parentToChildMap {
                 guard let parent = personsMap[parentId] else { continue }
-                
                 let children = Set(relations.map { $0.fromPerson })
-                
                 if parent.gender == .male {
                     fatherChildren[parentId] = children
                 } else {
                     motherChildren[parentId] = children
                 }
             }
-            
-            return (fatherChildren, motherChildren)
         }
+        
+        return (fatherChildren, motherChildren)
+    }
    
 }

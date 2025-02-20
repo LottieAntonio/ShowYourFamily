@@ -26,7 +26,6 @@ class CollateralRelationHandler: BaseRelationHandler {
             if isPaternal {
                 if target.gender == .male {
                     if let father = getFather(of: source) {
-                        // 使用 getSiblingInfo 来验证兄弟姐妹关系
                         let siblingInfo = getSiblingInfo([])
                         if validateSiblingRelation(source: father.id, target: target.id,
                                                  fatherChildren: siblingInfo.fatherChildren,
@@ -128,24 +127,36 @@ class CollateralRelationHandler: BaseRelationHandler {
         var downCount = 0
         var foundCommonAncestor = false
         var lastParentType: RelationType?
+        var commonAncestorId: UUID?
         
         for relation in path {
-            switch relation.type {
-            case .father, .mother:
+            if relation.type == .father || relation.type == .mother {
                 if !foundCommonAncestor {
                     upCount += 1
                     lastParentType = relation.type
+                    commonAncestorId = relation.toPerson
                 }
-            case .brother, .sister:
-                foundCommonAncestor = true
-                if let parentType = lastParentType {
-                    lastParentType = parentType
+                
+                if relation.toPerson == commonAncestorId {
+                    foundCommonAncestor = true
                 }
-            case .child:
+            } else if relation.type == .brother || relation.type == .sister {
                 foundCommonAncestor = true
-                downCount += 1
-            default:
-                continue
+            }
+        }
+        
+        if foundCommonAncestor {
+            var targetPath = false
+            for relation in path.reversed() {
+                if relation.type == .father || relation.type == .mother {
+                    if relation.toPerson == commonAncestorId {
+                        targetPath = true
+                        continue
+                    }
+                    if targetPath {
+                        downCount += 1
+                    }
+                }
             }
         }
         
