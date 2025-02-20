@@ -100,15 +100,20 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
     }
     
     func savePersons(_ persons: [Person]) async throws {
+        // 批量更新，避免频繁 IO
         await MainActor.run {
-            for person in persons {
-                self.persons[person.id] = person
-            }
+            let updates = Dictionary(uniqueKeysWithValues: persons.map { ($0.id, $0) })
+            self.persons.merge(updates) { _, new in new }
         }
         
-        // 批量持久化到本地
-        for person in persons {
-            try await localDataManager.savePerson(person)
+        // 使用 Task Group 并行处理保存操作
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for person in persons {
+                group.addTask {
+                    try await self.localDataManager.savePerson(person)
+                }
+            }
+            try await group.waitForAll()
         }
     }
     
@@ -117,7 +122,8 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
     }
     
     func getAllPersons() async throws -> [Person] {
-        return Array(persons.values)
+        // 返回按照添加顺序排序的数组
+        return Array(persons.values).sorted { $0.id.uuidString > $1.id.uuidString }
     }
     
    

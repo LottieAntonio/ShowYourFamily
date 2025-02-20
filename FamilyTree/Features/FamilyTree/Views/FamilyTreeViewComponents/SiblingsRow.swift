@@ -14,7 +14,7 @@ struct SiblingsRow: View {
         GridRow {
             RelationshipSection(
                 title: "兄弟",
-                persons: personManager.getRelatedPersons(for: currentPerson, relationType: .brother),
+                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .brother),
                 onAddTap: {
                     Task {
                         await showAddRelation(
@@ -36,7 +36,7 @@ struct SiblingsRow: View {
             
             RelationshipSection(
                 title: "姐妹",
-                persons: personManager.getRelatedPersons(for: currentPerson, relationType: .sister),
+                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .sister),
                 onAddTap: {
                     Task {
                         await showAddRelation(

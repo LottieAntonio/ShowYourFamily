@@ -14,7 +14,7 @@ struct ChildrenRow: View {
         GridRow {
             RelationshipSection(
                 title: "子女",
-                persons: personManager.getRelatedPersons(for: currentPerson, relationType: .child),
+                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .child),
                 onAddTap: {
                     Task {
                         await showAddRelation(

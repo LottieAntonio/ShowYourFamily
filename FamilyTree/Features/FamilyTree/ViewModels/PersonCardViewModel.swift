@@ -49,7 +49,8 @@ class PersonCardViewModel: ObservableObject {
             }
         }
         
-        return "计算亲属关系..."
+        // 修改这里：返回人物姓名而不是"计算中"的提示
+        return "\(person.firstName)\(person.lastName)"
     }
     
     @MainActor
@@ -331,9 +332,12 @@ class PersonCardViewModel: ObservableObject {
     }
     
     // 添加称呼生成器
-    private lazy var titleGenerator = RelativeTitleGenerator(managementViewModel: managementViewModel)
-    
-    // 添加获取称呼的计算属性
+    private var titleGenerator: RelativeTitleGenerator {
+        RelativeTitleGenerator(
+            relationships: managementViewModel.relationships,
+            persons: managementViewModel.persons
+        )
+    }
    
     
     @MainActor  // 只保留一个 @MainActor

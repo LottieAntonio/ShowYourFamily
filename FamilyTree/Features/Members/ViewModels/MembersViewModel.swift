@@ -11,7 +11,14 @@ class MembersViewModel: ObservableObject {
     private let familyTreeViewModel: FamilyTreeViewModel
     private var cancellables = Set<AnyCancellable>()
     private lazy var personManager = PersonManagementViewModel(familyTreeViewModel: familyTreeViewModel)
-    private lazy var titleGenerator = RelativeTitleGenerator(managementViewModel: personManager)
+    
+    // 修改 titleGenerator 的初始化方式
+    private var titleGenerator: RelativeTitleGenerator {
+        RelativeTitleGenerator(
+            relationships: familyTreeViewModel.relationships,
+            persons: familyTreeViewModel.persons
+        )
+    }
     
     init(familyTreeViewModel: FamilyTreeViewModel) {
         self.familyTreeViewModel = familyTreeViewModel
@@ -77,10 +84,11 @@ class MembersViewModel: ObservableObject {
                     return relationship.fromPerson == person.id && relationship.type == .mother
                 case .child:
                     return (relationship.toPerson == person.id && relationship.type == .father) ||
-                           (relationship.toPerson == person.id && relationship.type == .mother)
+                    (relationship.toPerson == person.id && relationship.type == .mother)
                 case .spouse:
                     return (relationship.fromPerson == person.id && relationship.type == .spouse) ||
-                           (relationship.toPerson == person.id && relationship.type == .spouse)
+                    (relationship.toPerson == person.id && relationship.type == .spouse)
+                    
                 default:
                     return false
                 }
@@ -107,8 +115,9 @@ class MembersViewModel: ObservableObject {
         }
     }
     
-    func updateSelectedPerson(_ person: Person) async {
-        await familyTreeViewModel.updateSelectedPerson(person)
+    func updateSelectedPerson(_ person: Person) {
+        selectedPerson = person
+        familyTreeViewModel.selectedPerson = person
     }
     
     // 添加获取称谓的方法

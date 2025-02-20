@@ -38,6 +38,8 @@ struct PersonBasicInfoSection: View {
     
     // 添加状态变量
     @State private var showingSetSelfAlert = false
+    @State private var showSuccessToast = false
+    @State private var successMessage = ""
     
     var body: some View {
         ZStack(alignment: viewModel.isEditable ? .top : .bottom) {
@@ -210,6 +212,24 @@ struct PersonBasicInfoSection: View {
         } message: {
             Text("确定将此人设置为自己吗？这将重置所有亲属关系的称呼。")
         }
+    }
+}
+
+// 添加 Toast 组件
+struct ToastView: View {
+    let message: String
+    
+    var body: some View {
+        Text(message)
+            .font(.subheadline)
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.8))
+            )
+            .padding(.top, 20)
     }
 }
 

@@ -14,7 +14,7 @@ struct SpouseRow: View {
         GridRow {
             RelationshipSection(
                 title: "配偶",
-                persons: personManager.getRelatedPersons(for: currentPerson, relationType: .spouse),
+                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .spouse),
                 onAddTap: {
                     Task {
                         let defaultSpouseGender = currentPerson.gender == .male ? Person.Gender.female : .male
