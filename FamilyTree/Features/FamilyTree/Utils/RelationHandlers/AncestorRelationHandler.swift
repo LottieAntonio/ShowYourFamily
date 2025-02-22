@@ -40,7 +40,33 @@ class AncestorRelationHandler: BaseRelationHandler {
                 (isPaternal ? "爷爷" : "外公") :
                 (isPaternal ? "奶奶" : "外婆")
         case 3:
-            return target.gender == .male ? "曾祖父" : "曾祖母"
+            if isPaternal {
+                // 父亲这边的祖父母
+                if let father = getFather(of: source),
+                   let fatherParentRelation = findRelations(from: father.id, ofType: .father)
+                        .first ?? findRelations(from: father.id, ofType: .mother).first,
+                   let fatherParentId = getOtherPerson(in: fatherParentRelation, from: father.id),
+                   fatherParentId == target.id {
+                    // 父亲的父母（曾祖父母）
+                    return target.gender == .male ? "曾祖父" : "曾祖母"
+                } else {
+                    // 父亲的外公外婆（曾外祖父母）
+                    return target.gender == .male ? "曾外祖父" : "曾外祖母"
+                }
+            } else {
+                // 母亲这边的祖父母
+                if let mother = getMother(of: source),
+                   let motherParentRelation = findRelations(from: mother.id, ofType: .father)
+                        .first ?? findRelations(from: mother.id, ofType: .mother).first,
+                   let motherParentId = getOtherPerson(in: motherParentRelation, from: mother.id),
+                   motherParentId == target.id {
+                    // 母亲的父母（外曾祖父母）
+                    return target.gender == .male ? "外曾祖父" : "外曾祖母"
+                } else {
+                    // 母亲的外公外婆（外曾外祖父母）
+                    return target.gender == .male ? "外曾外祖父" : "外曾外祖母"
+                }
+            }
         case 4:
             return target.gender == .male ? "高祖父" : "高祖母"
         default:
@@ -58,11 +84,16 @@ class AncestorRelationHandler: BaseRelationHandler {
         
         for parentRelation in parents {
             if let parentId = getOtherPerson(in: parentRelation, from: source.id) {
+                // 先获取亲生祖父母
                 let grandparents = findRelations(from: parentId, ofType: .father) + 
-                             findRelations(from: parentId, ofType: .mother)
+                                 findRelations(from: parentId, ofType: .mother)
                 
                 for grandparentRelation in grandparents {
                     if let grandparentId = getOtherPerson(in: grandparentRelation, from: parentId) {
+                        // 确保这个祖父母不是目标人物（避免将亲生祖父母判断为继祖父母）
+                        guard grandparentId != target.id else { continue }
+                        
+                        // 只查找这个祖父母的配偶
                         let spouses = relationships.filter { relation in
                             (relation.fromPerson == grandparentId || relation.toPerson == grandparentId) &&
                             relation.type == .spouse

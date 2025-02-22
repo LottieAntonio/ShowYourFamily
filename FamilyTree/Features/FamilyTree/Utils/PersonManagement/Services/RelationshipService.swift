@@ -46,10 +46,20 @@ class RelationshipService: ObservableObject {
     }
     
     func addRelationship(from: Person, to: Person, type: RelationType) async throws {
-        // 添加关系前先检查是否已存在
+        // 基本验证
+        if from.id == to.id {
+            throw RelationshipError.invalidRelationship("不能与自己建立关系")
+        }
+        
+        // 检查是否已存在关系
         let existingRelations = getRelatedPersons(for: from, relationType: type)
         if existingRelations.contains(where: { $0.id == to.id }) {
             return // 如果关系已存在，直接返回
+        }
+        
+        // 检查是否存在冲突的关系
+        if await hasConflictingRelationship(from: from, to: to, type: type) {
+            throw RelationshipError.conflictingRelationship("存在冲突的关系")
         }
         
         switch type {
@@ -64,8 +74,35 @@ class RelationshipService: ObservableObject {
             try await parentChildHandler.handleParentAddition(from: to, to: from, type: parentType)
         }
         
-        // 关系添加后刷新数据
         await refreshData()
+    }
+    
+    // 添加检查冲突关系的方法
+    private func hasConflictingRelationship(from: Person, to: Person, type: RelationType) async -> Bool {
+        // 检查是否已经是子女关系
+        let isChild = getRelatedPersons(for: from, relationType: .child)
+            .contains(where: { $0.id == to.id })
+        let isParent = (getRelatedPersons(for: from, relationType: .father) + 
+                       getRelatedPersons(for: from, relationType: .mother))
+            .contains(where: { $0.id == to.id })
+            
+        switch type {
+        case .father, .mother:
+            // 如果目标人物已经是子女或配偶，则冲突
+            return isChild || getRelatedPersons(for: from, relationType: .spouse)
+                .contains(where: { $0.id == to.id })
+        case .child:
+            // 如果目标人物已经是父母或配偶，则冲突
+            return isParent || getRelatedPersons(for: from, relationType: .spouse)
+                .contains(where: { $0.id == to.id })
+        case .spouse:
+            // 如果目标人物是直系亲属，则冲突
+            return isChild || isParent
+        case .brother, .sister:
+            // 如果目标人物是直系亲属或配偶，则冲突
+            return isChild || isParent || getRelatedPersons(for: from, relationType: .spouse)
+                .contains(where: { $0.id == to.id })
+        }
     }
     
     func getRelatedPersons(for person: Person, relationType: RelationType) -> [Person] {
@@ -110,4 +147,9 @@ class RelationshipService: ObservableObject {
             print("刷新数据失败：\(error.localizedDescription)")
         }
     }
+}
+// 在类定义前添加
+enum RelationshipError: Error {
+    case invalidRelationship(String)
+    case conflictingRelationship(String)
 }

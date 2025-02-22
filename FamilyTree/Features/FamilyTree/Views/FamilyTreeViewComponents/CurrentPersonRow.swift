@@ -8,6 +8,9 @@ struct CurrentPersonRow: View {
     @Binding var isTransitioning: Bool
     var animation: Namespace.ID
     
+    // 添加状态变量
+    @State private var isProcessing = false
+    
     var body: some View {
         GridRow {
             VStack(alignment: .leading, spacing: 8) {
@@ -39,6 +42,190 @@ struct CurrentPersonRow: View {
                                 }
                             }) {
                                 Label("设置为自己", systemImage: "person.crop.circle.badge.checkmark")
+                            }
+                            
+                            Divider()
+                            
+                            // 设置为父亲
+                            if currentPerson.gender == .male {
+                                Button(action: {
+                                    isProcessing = true
+                                    Task {
+                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                            // 检查是否已经存在关系
+                                            let existingRelations = personManager.relationships.filter { 
+                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                            }
+                                            
+                                            // 如果没有现有关系，才建立新关系
+                                            if existingRelations.isEmpty {
+                                                try? await personManager.relationshipService.addRelationship(
+                                                    from: selfPerson,
+                                                    to: currentPerson,
+                                                    type: .father
+                                                )
+                                                await personManager.loadData()
+                                                // 强制更新 UI
+                                                await MainActor.run {
+                                                    personManager.objectWillChange.send()
+                                                }
+                                            }
+                                        }
+                                        isProcessing = false
+                                    }
+                                }) {
+                                    Label("设置为父亲", systemImage: "person.2.circle")
+                                }
+                                .disabled(isProcessing)
+                            }
+                            
+                            // 设置为母亲
+                            if currentPerson.gender == .female {
+                                Button(action: {
+                                    isProcessing = true
+                                    Task {
+                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                            let existingRelations = personManager.relationships.filter { 
+                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                            }
+                                            
+                                            if existingRelations.isEmpty {
+                                                try? await personManager.relationshipService.addRelationship(
+                                                    from: selfPerson,
+                                                    to: currentPerson,
+                                                    type: .mother
+                                                )
+                                                await personManager.loadData()
+                                                await MainActor.run {
+                                                    personManager.objectWillChange.send()
+                                                }
+                                            }
+                                        }
+                                        isProcessing = false
+                                    }
+                                }) {
+                                    Label("设置为母亲", systemImage: "person.2.circle")
+                                }
+                                .disabled(isProcessing)
+                            }
+                            
+                            // 设置为配偶
+                            Button(action: {
+                                isProcessing = true
+                                Task {
+                                    if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                        let existingRelations = personManager.relationships.filter { 
+                                            ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                            ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                        }
+                                        
+                                        if existingRelations.isEmpty {
+                                            try? await personManager.relationshipService.addRelationship(
+                                                from: selfPerson,
+                                                to: currentPerson,
+                                                type: .spouse
+                                            )
+                                            await personManager.loadData()
+                                            await MainActor.run {
+                                                personManager.objectWillChange.send()
+                                            }
+                                        }
+                                    }
+                                    isProcessing = false
+                                }
+                            }) {
+                                Label("设置为配偶", systemImage: "heart.circle")
+                            }
+                            .disabled(isProcessing)
+                            
+                            // 设置为子女
+                            Button(action: {
+                                isProcessing = true
+                                Task {
+                                    if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                        let existingRelations = personManager.relationships.filter { 
+                                            ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                            ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                        }
+                                        
+                                        if existingRelations.isEmpty {
+                                            try? await personManager.relationshipService.addRelationship(
+                                                from: selfPerson,
+                                                to: currentPerson,
+                                                type: .child
+                                            )
+                                            await personManager.loadData()
+                                            await MainActor.run {
+                                                personManager.objectWillChange.send()
+                                            }
+                                        }
+                                    }
+                                    isProcessing = false
+                                }
+                            }) {
+                                Label("设置为子女", systemImage: "person.crop.circle.badge.plus")
+                            }
+                            .disabled(isProcessing)
+                            
+                            // 设置为兄弟/姐妹
+                            if currentPerson.gender == .male {
+                                Button(action: {
+                                    isProcessing = true
+                                    Task {
+                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                            let existingRelations = personManager.relationships.filter { 
+                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                            }
+                                            
+                                            if existingRelations.isEmpty {
+                                                try? await personManager.relationshipService.addRelationship(
+                                                    from: selfPerson,
+                                                    to: currentPerson,
+                                                    type: .brother
+                                                )
+                                                await personManager.loadData()
+                                                await MainActor.run {
+                                                    personManager.objectWillChange.send()
+                                                }
+                                            }
+                                        }
+                                        isProcessing = false
+                                    }
+                                }) {
+                                    Label("设置为兄弟", systemImage: "person.3")
+                                }
+                                .disabled(isProcessing)
+                            } else {
+                                Button(action: {
+                                    isProcessing = true
+                                    Task {
+                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
+                                            let existingRelations = personManager.relationships.filter { 
+                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
+                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
+                                            }
+                                            
+                                            if existingRelations.isEmpty {
+                                                try? await personManager.relationshipService.addRelationship(
+                                                    from: selfPerson,
+                                                    to: currentPerson,
+                                                    type: .sister
+                                                )
+                                                await personManager.loadData()
+                                                await MainActor.run {
+                                                    personManager.objectWillChange.send()
+                                                }
+                                            }
+                                        }
+                                        isProcessing = false
+                                    }
+                                }) {
+                                    Label("设置为姐妹", systemImage: "person.3")
+                                }
+                                .disabled(isProcessing)
                             }
                         }
                     } label: {

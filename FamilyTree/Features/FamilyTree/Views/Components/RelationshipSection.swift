@@ -76,15 +76,24 @@ struct RelationshipSection: View {
             alignment: .top
         )
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.regularMaterial)
-                .shadow(
-                    color: Color.familyTheme.primary.opacity(0.15),
-                    radius: 8,
-                    x: 0,
-                    y: 4
-                )
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.regularMaterial)
+                
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        Color.familyTheme.gradientFor(type).opacity(0.3),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(
+                color: Color.familyTheme.primary.opacity(0.15),
+                radius: 8,
+                x: 0,
+                y: 4
+            )
         )
+       
     }
 }
 
@@ -226,8 +235,9 @@ private struct PersonItemView: View {
         let hasSameFather = currentFather?.id == personFather?.id && currentFather != nil
         let hasSameMother = currentMother?.id == personMother?.id && currentMother != nil
         
+        // 如果是同父同母的兄弟姐妹，不显示标识
         if hasSameFather && hasSameMother {
-            return .fullSibling
+            return nil
         } else if hasSameFather {
             return .paternalSibling
         } else if hasSameMother {

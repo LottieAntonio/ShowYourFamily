@@ -106,11 +106,11 @@ class DirectRelationHandler: BaseRelationHandler {
                        spouseId == target.id {
                         // 是父亲的配偶
                         if parentRelation.type == .father {
-                            return "继母"
+                            return "爸爸的配偶之一，可以叫阿姨"
                         }
                         // 是母亲的配偶
                         else if parentRelation.type == .mother {
-                            return "继父"
+                            return "妈妈的配偶之一，可以叫叔叔"
                         }
                     }
                 }

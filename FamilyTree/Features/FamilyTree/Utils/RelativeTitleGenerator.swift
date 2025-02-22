@@ -70,7 +70,7 @@ class RelativeTitleGenerator {
             // 旁系关系
             baseTitle = title
         } else {
-            return relative.name
+            return "跟\(selfPerson.name)没有直接关系"
         }
         
         // 组合最终称谓：自己的名字 + 的 + 称谓

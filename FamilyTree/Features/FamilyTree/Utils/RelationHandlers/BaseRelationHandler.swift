@@ -390,5 +390,40 @@ class BaseRelationHandler {
         
         return (fatherChildren, motherChildren)
     }
+    
+    func findNephewTitle(from source: Person, to target: Person, isFromBrother: Bool) -> String? {
+        if isFromBrother {
+            return target.gender == .male ? "侄子" : "侄女"
+        } else {
+            return target.gender == .male ? "外甥" : "外甥女"
+        }
+    }
+    
+    func getFather(of person: Person) -> Person? {
+        let fatherRelation = relationships.first { relation in
+            (relation.toPerson == person.id || relation.fromPerson == person.id) &&
+            relation.type == .father
+        }
+        
+        if let relation = fatherRelation {
+            let fatherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
+            return persons.first(where: { $0.id == fatherId })
+        }
+        return nil
+    }
+    
+    // 添加获取母亲的辅助方法
+    func getMother(of person: Person) -> Person? {
+        let motherRelation = relationships.first { relation in
+            (relation.toPerson == person.id || relation.fromPerson == person.id) &&
+            relation.type == .mother
+        }
+        
+        if let relation = motherRelation {
+            let motherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
+            return persons.first(where: { $0.id == motherId })
+        }
+        return nil
+    }
    
 }

@@ -3,9 +3,46 @@ import Foundation
 class CollateralRelationHandler: BaseRelationHandler {
     func findCollateralTitle(from source: Person, to target: Person) -> String? {
         let path = findRelationPath(from: source.id, to: target.id)
-        
         guard !path.isEmpty else { return nil }
         
+        // 检查是否存在亲生关系路径
+        let hasBloodRelation = path.allSatisfy { relation in
+            switch relation.type {
+            case .father, .mother, .child, .brother, .sister:
+                return true
+            default:
+                return false
+            }
+        }
+        
+        guard hasBloodRelation else { return nil }
+        
+        // 先检查是否是兄弟姐妹的子女
+        let siblingInfo = getSiblingInfo([])
+        let siblingRelations = findRelations(from: source.id, ofType: .brother) + 
+                             findRelations(from: source.id, ofType: .sister)
+        
+        // 获取所有兄弟姐妹的ID
+        var siblingIds = Set<UUID>()
+        for relation in siblingRelations {
+            if let siblingId = getOtherPerson(in: relation, from: source.id) {
+                siblingIds.insert(siblingId)
+            }
+        }
+        
+        // 检查目标是否是兄弟姐妹的子女
+        for (parentId, children) in siblingInfo.fatherChildren {
+            if siblingIds.contains(parentId) && children.contains(target.id) {
+                return findNephewTitle(from: source, to: target, isFromBrother: true)
+            }
+        }
+        for (parentId, children) in siblingInfo.motherChildren {
+            if siblingIds.contains(parentId) && children.contains(target.id) {
+                return findNephewTitle(from: source, to: target, isFromBrother: false)
+            }
+        }
+        
+        // 如果不是侄子侄女，再判断其他关系
         let commonAncestorPath = findCommonAncestor(in: path)
         let isPaternal = commonAncestorPath.first?.type == .father
         let generationDiff = calculateGenerationDifference(in: path)
@@ -61,19 +98,7 @@ class CollateralRelationHandler: BaseRelationHandler {
         return nil
     }
     
-    // 添加获取母亲的辅助方法
-    private func getMother(of person: Person) -> Person? {
-        let motherRelation = relationships.first { relation in
-            (relation.toPerson == person.id || relation.fromPerson == person.id) && 
-            relation.type == .mother
-        }
-        
-        if let relation = motherRelation {
-            let motherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
-            return persons.first(where: { $0.id == motherId })
-        }
-        return nil
-    }
+
     
     private func findSiblingRelations(for personId: UUID) -> [Relationship] {
         return relationships.filter { relation in
@@ -163,18 +188,7 @@ class CollateralRelationHandler: BaseRelationHandler {
         return upCount - downCount
     }
     
-    private func getFather(of person: Person) -> Person? {
-        let fatherRelation = relationships.first { relation in
-            (relation.toPerson == person.id || relation.fromPerson == person.id) && 
-            relation.type == .father
-        }
-        
-        if let relation = fatherRelation {
-            let fatherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
-            return persons.first(where: { $0.id == fatherId })
-        }
-        return nil
-    }
+
 }
 
 

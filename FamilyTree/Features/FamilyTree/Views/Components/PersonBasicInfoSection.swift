@@ -16,6 +16,7 @@ struct PersonBasicInfoSection: View {
     @State private var gender: Person.Gender
     @State private var birthDate: Date
     @State private var notes: String
+    @State private var birthDateText: String = ""
     
     // 将 dateFormatter 移到这里
     private let dateFormatter: DateFormatter = {
@@ -34,6 +35,12 @@ struct PersonBasicInfoSection: View {
         _gender = State(initialValue: viewModel.state.basicInfo.gender)
         _birthDate = State(initialValue: viewModel.state.basicInfo.birthDate ?? Date())
         _notes = State(initialValue: viewModel.state.basicInfo.notes)
+        
+        if let date = viewModel.state.basicInfo.birthDate {
+                   _birthDateText = State(initialValue: dateFormatter.string(from: date))
+        } else {
+            _birthDateText = State(initialValue: "")
+        }
     }
     
     // 添加状态变量
@@ -170,20 +177,40 @@ struct PersonBasicInfoSection: View {
                                 }
                             }
                             
-                            DatePicker(
-                                "出生日期",
-                                selection: $birthDate,
-                                displayedComponents: .date
-                            )
-                            .environment(\.locale, Locale(identifier: "zh_CN"))
-                            .padding(8)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                            .onChange(of: birthDate) { _, newValue in
-                                Task {
-                                    await viewModel.updateBirthDate(newValue)
+                            VStack(alignment: .leading, spacing: 8) {
+                                    Text("出生日期")
+                                        .foregroundStyle(.secondary)
+                                        .font(.subheadline)
+                                    
+                                    TextField("直接输入（如：2004年9月1日、2004.9.1或2004）", text: $birthDateText)
+                                        .padding(8)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(8)
+                                        .onChange(of: birthDateText) { _, newValue in
+                                            if let date = parseDateString(newValue) {
+                                                birthDate = date
+                                                Task {
+                                                    await viewModel.updateBirthDate(date)
+                                                }
+                                            }
+                                        }
+                                    
+//                                    DatePicker(
+//                                        "或选择日期",
+//                                        selection: $birthDate,
+//                                        displayedComponents: .date
+//                                    )
+//                                    .environment(\.locale, Locale(identifier: "zh_CN"))
+//                                    .padding(8)
+//                                    .background(Color(.systemGray6))
+//                                    .cornerRadius(8)
+//                                    .onChange(of: birthDate) { _, newValue in
+//                                        birthDateText = dateFormatter.string(from: newValue)
+//                                        Task {
+//                                            await viewModel.updateBirthDate(newValue)
+//                                        }
+//                                    }
                                 }
-                            }
                         }
                         .padding(30)
                     }
@@ -213,6 +240,33 @@ struct PersonBasicInfoSection: View {
             Text("确定将此人设置为自己吗？这将重置所有亲属关系的称呼。")
         }
     }
+    
+    private func parseDateString(_ dateString: String) -> Date? {
+            let text = dateString.trimmingCharacters(in: .whitespaces)
+            
+            let patterns: [(String, String)] = [
+                ("(\\d{4})年(\\d{1,2})月(\\d{1,2})日", "yyyy年MM月dd日"),
+                ("(\\d{4})\\.(\\d{1,2})\\.(\\d{1,2})", "yyyy.MM.dd"),
+                ("(\\d{4})-(\\d{1,2})-(\\d{1,2})", "yyyy-MM-dd"),
+                ("(\\d{4})/(\\d{1,2})/(\\d{1,2})", "yyyy/MM/dd"),
+                ("(\\d{4})年(\\d{1,2})月", "yyyy年MM月"),
+                ("(\\d{4})\\.(\\d{1,2})", "yyyy.MM"),
+                ("(\\d{4})年?", "yyyy")
+            ]
+            
+            for (pattern, format) in patterns {
+                if let _ = text.range(of: pattern, options: .regularExpression) {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = format
+                    formatter.locale = Locale(identifier: "zh_CN")
+                    if let date = formatter.date(from: text) {
+                        return date
+                    }
+                }
+            }
+            
+            return nil
+        }
 }
 
 // 添加 Toast 组件
