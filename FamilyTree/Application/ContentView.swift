@@ -4,17 +4,29 @@ struct ContentView: View {
     @StateObject private var coordinator = AppCoordinator()
     @StateObject private var familyViewModel: FamilyTreeViewModel
     @StateObject private var personManager: PersonManagementViewModel
+    let familyManager: FamilyManagementViewModel
     
-    init() {
-        // 修复：移除重复创建的实例
-        let fvm = FamilyTreeViewModel()
+    init(familyManager: FamilyManagementViewModel) {
+        self.familyManager = familyManager
+        
+        // 使用传入的 familyManager 的 localDataManager
+        let dataManager = familyManager.localDataManager
+        
+        // 创建视图模型，使用协议类型
+        let fvm = FamilyTreeViewModel(dataManager: dataManager)
+        
         _familyViewModel = StateObject(wrappedValue: fvm)
-        _personManager = StateObject(wrappedValue: PersonManagementViewModel(familyTreeViewModel: fvm))
+        _personManager = StateObject(wrappedValue: PersonManagementViewModel(
+            familyTreeViewModel: fvm,
+            familyManager: familyManager
+        ))
     }
+    
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         TabView(selection: $coordinator.currentScreen) {
-            FamilyTreeView()
+            FamilyTreeView(familyManager: familyManager)
                 .environmentObject(familyViewModel)
                 .environmentObject(personManager)
                 .tabItem {
@@ -46,15 +58,47 @@ struct ContentView: View {
             RoundedRectangle(cornerSize: .zero)
         })
         .onAppear {
-            // 初始加载数据
+            // 确保数据加载
             Task {
+                await familyManager.loadFamilies()
                 await personManager.loadData()
             }
         }
         .environmentObject(coordinator)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    coordinator.showingExitConfirmation = true
+                } label: {
+                    Image(systemName: "chevron.backward")
+                }
+            }
+        }
+        .alert("确认返回", isPresented: $coordinator.showingExitConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("返回主页", role: .destructive) {
+                Task {
+                    await MainActor.run {
+                        coordinator.currentScreen = .familyTree
+                        // 移除 switchFamily 调用
+                        coordinator.navigateToRoot = true
+                    }
+                }
+            }
+        } message: {
+            Text("确定要返回主页吗？")
+        }
+        // 添加环境值监听
+        .onChange(of: coordinator.navigateToRoot) { newValue in
+            if newValue {
+                dismiss()
+            }
+        }
     }
 }
 
 #Preview {
-    ContentView()
+    let dataManager = LocalDataManager()
+    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
+    return ContentView(familyManager: familyManager)
 }

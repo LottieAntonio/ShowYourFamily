@@ -118,26 +118,4 @@ private struct ContactItem: View {
     }
 }
 
-#Preview("联系方式") {
-    let familyViewModel = FamilyTreeViewModel()
-    PersonContactSection(
-        viewModel: PersonCardViewModel(
-            person: Person(
-                firstName: "三",
-                lastName: "张",
-                gender: .male
-            ).with(
-                contacts: Contacts(
-                    phone: "13800138000",
-                    wechat: "zhangsan",
-                    address: "北京市朝阳区",
-                    email: "zhangsan@example.com",
-                    qq: "123456"
-                )
-            ),
-            mode: .edit,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
-        )
-    )
-    .padding()
-}
+

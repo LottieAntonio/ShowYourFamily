@@ -167,46 +167,6 @@ struct PersonCard: View {
     }
 }
 
-#Preview("查看模式") {
-    NavigationView {
-        PersonCard(
-            person: Person(
-                id: UUID(),
-                firstName: "三",
-                lastName: "张",
-                gender: .male
-            ).with(
-                birthDate: Date(),
-                contacts: Contacts(phone: "13800138000", wechat: "zhangsan"),
-                lifeEvents: [
-                    LifeEvent(type: .birth, date: Date(), description: "出生")
-                ],
-                stories: [
-                    Story(title: "童年", content: "快乐的童年时光", date: Date())
-                ]
-            ),
-            mode: .view,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: FamilyTreeViewModel())
-        )
-    }
-}
 
-#Preview("编辑模式") {
-    NavigationView {
-        PersonCard(
-            person: Person(firstName: "三", lastName: "张", gender: .male),
-            mode: .edit,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: FamilyTreeViewModel())
-        )
-    }
-}
 
-#Preview("添加模式") {
-    NavigationView {
-        PersonCard(
-            person: nil,
-            mode: .add(relationType: .parent),
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: FamilyTreeViewModel())
-        )
-    }
-}
+

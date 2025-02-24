@@ -27,34 +27,34 @@ class PersonManagementViewModel: ObservableObject {
     // MARK: - Dependencies
     let familyTreeViewModel: FamilyTreeViewModel                
     private(set) var titleGenerator: RelativeTitleGenerator     // 改为 private(set)
-    let relationshipService: RelationshipService                
+    var relationshipService: RelationshipService                
     private var personService: PersonDataService
     private var cancellables = Set<AnyCancellable>()           
 
     // MARK: - Initialization
-    init(familyTreeViewModel: FamilyTreeViewModel) {
+    // 保留旧的初始化器以保持兼容性
+    init(familyTreeViewModel: FamilyTreeViewModel, familyManager: FamilyManagementViewModel) {
         self.familyTreeViewModel = familyTreeViewModel
+        let dataManager = familyTreeViewModel.dataManager
         
-        // 先初始化 titleGenerator
+        // 初始化服务，使用协议类型
         self.titleGenerator = RelativeTitleGenerator(
-            relationships: [],
-            persons: []
-        )
-        
-        self.relationshipService = RelationshipService(
-            dataManager: familyTreeViewModel.dataManager as! DataManager,
             relationships: familyTreeViewModel.relationships,
             persons: familyTreeViewModel.persons
         )
         
-        self.personService = PersonDataService(
-            dataManager: familyTreeViewModel.dataManager as! DataManager
+        self.relationshipService = RelationshipService(
+            dataManager: dataManager,  // 移除强制转换
+            relationships: familyTreeViewModel.relationships,
+            persons: familyTreeViewModel.persons
         )
         
-        // 移到这里初始化数据
+        self.personService = PersonDataService(dataManager: dataManager)  // 移除强制转换
+        
+        // 设置数据观察者
         Task { @MainActor in
             await self.updateData()
-            self.setupDataObservers()  // 改名为更具体的名称
+            self.setupDataObservers()
         }
     }
     
@@ -120,42 +120,86 @@ class PersonManagementViewModel: ObservableObject {
         }
     }
     
-    // 统一的数据加载方法
+    // 修改 loadData 方法中的类型转换
+    // 修改 loadData 方法
     func loadData() async {
+        guard let familyManager = familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else { return }
+        
         do {
-            try await familyTreeViewModel.loadData()
+            let persons = try await familyTreeViewModel.dataManager.loadPersons(familyId: currentFamily.id)
+            let relationships = try await familyTreeViewModel.dataManager.loadRelationships(familyId: currentFamily.id)
+            
             await MainActor.run {
-                updateData()
+                self.persons = persons
+                self.relationships = relationships
+                updateServices(persons: persons, relationships: relationships)
             }
         } catch {
             errorMessage = "加载数据失败：\(error.localizedDescription)"
         }
     }
     
+    // 修改 updatePerson 方法
     func updatePerson(_ person: Person) async throws {
-        // 先保存到数据管理器
-        try await familyTreeViewModel.dataManager.savePerson(person)
-        
-        await MainActor.run {
-            // 立即更新本地数据
-            if let index = persons.firstIndex(where: { $0.id == person.id }) {
-                persons[index] = person
-            } else {
-                persons.append(person)
-            }
-            
-            // 更新选中的人物
-            if selectedPerson?.id == person.id {
-                selectedPerson = person
-            }
-            
-            // 强制更新
-            objectWillChange.send()
+        guard let familyManager = familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            throw FamilyError.noCurrentFamily
         }
         
-        // 最后再刷新一次确保数据同步
+        // 修改这里：只在编辑默认家谱时抛出错误
+        if currentFamily.isDefault && person.familyId == currentFamily.id {
+            throw FamilyError.defaultFamilyNotEditable
+        }
+        
+        var updatedPerson = person
+        updatedPerson.familyId = currentFamily.id
+        
+        try await familyTreeViewModel.dataManager.savePerson(updatedPerson)
         await loadData()
     }
+    
+    // 修改 addRelationship 方法
+    func addRelationship(from: Person, to: Person, type: RelationType) async throws {
+        guard let familyManager = familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            throw FamilyError.noCurrentFamily
+        }
+        
+        if currentFamily.isDefault {
+            throw FamilyError.cannotModifyDefaultFamily
+        }
+        
+        try await relationshipService.addRelationship(from: from, to: to, type: type)
+        await reloadData()
+    }
+    
+    // 修改 deletePerson 方法
+    func deletePerson(_ person: Person) async throws {
+        guard let familyManager = familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            throw FamilyError.noCurrentFamily
+        }
+        
+        if currentFamily.isDefault {
+            throw FamilyError.cannotModifyDefaultFamily
+        }
+        
+        try await personService.deletePerson(person.id, relationships: relationships)
+        if selectedPerson?.id == person.id {
+            selectedPerson = nil
+        }
+        await reloadData()
+    }
+    
+    // 添加辅助方法
+    private func updateServices(persons: [Person], relationships: [Relationship]) {
+        relationshipService.updateData(relationships: relationships, persons: persons)
+        titleGenerator = RelativeTitleGenerator(relationships: relationships, persons: persons)
+    }
+
+
+
     
     
    
@@ -183,21 +227,6 @@ class PersonManagementViewModel: ObservableObject {
         await reloadData()
     }
     
-    // 修改现有方法
-    func addRelationship(from: Person, to: Person, type: RelationType) async throws {
-        try await relationshipService.addRelationship(from: from, to: to, type: type)
-        await reloadData()
-    }
-    
-    
-    
-    func deletePerson(_ person: Person) async throws {
-        try await personService.deletePerson(person.id, relationships: relationships)
-        if selectedPerson?.id == person.id {
-            selectedPerson = nil
-        }
-        await reloadData()
-    }
     
     func addStory(_ story: Story, to person: Person) async throws {
         try await personService.addStory(story, to: person)

@@ -1,0 +1,28 @@
+{
+    "family": {
+        "name": "示例家谱",
+        "description": "这是一个示例家谱，展示了基本功能",
+        "isDefault": true
+    },
+    "persons": [
+        {
+            "firstName": "大",
+            "lastName": "张",
+            "gender": "male",
+            "birthDate": "1954-01-01T00:00:00Z"
+        },
+        {
+            "firstName": "兰",
+            "lastName": "李",
+            "gender": "female",
+            "birthDate": "1956-01-01T00:00:00Z"
+        }
+    ],
+    "relationships": [
+        {
+            "type": "spouse",
+            "fromPersonIndex": 0,
+            "toPersonIndex": 1
+        }
+    ]
+}

@@ -68,7 +68,12 @@ struct PersonBasicInfoSection: View {
                                 // 后续添加头像选择功能
                             } label: {
                                 PersonAvatarView(
-                                    person: viewModel.currentPerson ?? Person(firstName: "", lastName: "", gender: .male),
+                                    person: viewModel.currentPerson ?? Person(
+                                        familyId: UUID(), // 添加临时的 familyId
+                                        firstName: "",
+                                        lastName: "",
+                                        gender: .male
+                                    ),
                                     size: 60,
                                     type: nil,
                                     isEditable: false
@@ -123,7 +128,12 @@ struct PersonBasicInfoSection: View {
                                 // 后续添加头像选择功能
                             } label: {
                                 PersonAvatarView(
-                                    person: viewModel.currentPerson ?? Person(firstName: "", lastName: "", gender: .male),
+                                    person: viewModel.currentPerson ?? Person(
+                                        familyId: UUID(), // 添加临时的 familyId
+                                        firstName: "",
+                                        lastName: "",
+                                        gender: .male
+                                    ),
                                     size: 80,
                                     type: nil,
                                     isEditable: true
@@ -287,26 +297,3 @@ struct ToastView: View {
     }
 }
 
-#Preview("基本信息") {
-    let familyViewModel = FamilyTreeViewModel()
-    PersonBasicInfoSection(
-        viewModel: PersonCardViewModel(
-            person: Person(firstName: "三", lastName: "张", gender: .male),
-            mode: .edit,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
-        )
-    )
-    .padding()
-}
-
-#Preview("基本信息-查看模式") {
-    let familyViewModel = FamilyTreeViewModel()
-    PersonBasicInfoSection(
-        viewModel: PersonCardViewModel(
-            person: Person(firstName: "三", lastName: "张", gender: .male),
-            mode: .view,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
-        )
-    )
-    .padding()
-}

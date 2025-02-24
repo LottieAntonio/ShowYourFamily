@@ -1,6 +1,10 @@
 import SwiftUI
 
 class AppCoordinator: ObservableObject {
+    @Published var currentScreen: Screen = .familyTree
+    @Published var showingExitConfirmation = false
+    @Published var navigateToRoot = false
+    
     enum Screen {
         case familyTree
         case members // 新增
@@ -8,5 +12,4 @@ class AppCoordinator: ObservableObject {
         case settings
     }
     
-    @Published var currentScreen: Screen = .familyTree
 }

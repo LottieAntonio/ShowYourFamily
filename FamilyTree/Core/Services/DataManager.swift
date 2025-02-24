@@ -11,9 +11,15 @@ protocol DataManaging {
     // 关系管理
     func saveRelationship(_ relationship: Relationship) async throws
     func getRelationships(for personId: UUID) async throws -> [Relationship]
-    func getAllRelationships() async throws -> [Relationship]  // 添加新方法
+    func getAllRelationships() async throws -> [Relationship]
     func deleteRelationship(_ id: UUID) async throws
-    func savePersons(_ persons: [Person]) async throws  // 添加新方法
+    func savePersons(_ persons: [Person]) async throws
+    
+    // 家谱相关方法
+    func loadPersons(familyId: UUID) async throws -> [Person]
+    func loadRelationships(familyId: UUID) async throws -> [Relationship]
+    func loadFamilies() async throws -> [Family]  // 添加这个
+    func saveFamily(_ family: Family) async throws  // 添加这个
 }
 
 class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 协议
@@ -45,21 +51,7 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
         }
     }
     
-    func savePerson(_ person: Person) async throws {
-        do {
-            // 先保存到本地
-            try await localDataManager.savePerson(person)
-            print("✅ 保存人物成功: \(person.firstName)\(person.lastName)")
-            
-            // 再更新内存
-            await MainActor.run {
-                persons[person.id] = person
-            }
-        } catch {
-            print("❌ 保存人物失败: \(error.localizedDescription)")
-            throw error
-        }
-    }
+   
     
     func saveRelationship(_ relationship: Relationship) async throws {
         do {
@@ -146,5 +138,76 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
         relationships.removeValue(forKey: id)
         // 持久化删除
         try await localDataManager.deleteRelationship(id)
+    }
+    
+    // 实现家谱相关方法
+    func loadFamilies() async throws -> [Family] {
+        return try await localDataManager.loadFamilies()
+    }
+    
+    func saveFamily(_ family: Family) async throws {
+        try await localDataManager.saveFamily(family)
+    }
+    
+    // 实现新增的家谱相关方法
+    func loadPersons(familyId: UUID) async throws -> [Person] {
+        // 从内存中过滤指定家谱的人物
+        return Array(persons.values)
+            .filter { $0.familyId == familyId }
+            .sorted { $0.id.uuidString > $1.id.uuidString }
+    }
+    
+    func loadRelationships(familyId: UUID) async throws -> [Relationship] {
+        // 获取指定家谱的所有人物 ID
+        let familyPersonIds = Set(
+            persons.values
+                .filter { $0.familyId == familyId }
+                .map { $0.id }
+        )
+        
+        // 过滤出只涉及该家谱成员的关系
+        return Array(relationships.values)
+            .filter { relationship in
+                familyPersonIds.contains(relationship.fromPerson) &&
+                familyPersonIds.contains(relationship.toPerson)
+            }
+    }
+    
+    // 修改现有的保存方法，确保数据一致性
+    func savePerson(_ person: Person) async throws {
+        // 验证家谱 ID
+        guard !person.familyId.uuidString.isEmpty else {
+            throw DataError.invalidFamilyId
+        }
+        
+        do {
+            try await localDataManager.savePerson(person)
+            print("✅ 保存人物成功: \(person.firstName)\(person.lastName)")
+            
+            await MainActor.run {
+                persons[person.id] = person
+            }
+        } catch {
+            print("❌ 保存人物失败: \(error.localizedDescription)")
+            throw error
+        }
+    }
+}
+
+// 添加错误类型
+enum DataError: LocalizedError {
+    case invalidFamilyId
+    case personNotFound
+    case relationshipNotFound
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidFamilyId:
+            return "无效的家谱 ID"
+        case .personNotFound:
+            return "未找到指定的人物"
+        case .relationshipNotFound:
+            return "未找到指定的关系"
+        }
     }
 }

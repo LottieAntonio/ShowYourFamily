@@ -93,11 +93,23 @@ class PersonCardViewModel: ObservableObject {
     
     // MARK: - Actions
     
+    // 将 private 改为 internal（默认访问级别）
     @MainActor
     func save() async throws {
+        guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            throw FamilyError.noCurrentFamily
+        }
+        
+        // 修改这里：只在编辑默认家谱时抛出错误
+        if currentFamily.isDefault && (person?.familyId == currentFamily.id) {
+            throw FamilyError.defaultFamilyNotEditable
+        }
+        
         if case .add(let relationType) = mode {
-            // 创建新人物
+            // 3. 创建新人物时设置家谱 ID
             var newPerson = createOrUpdatePerson()
+            newPerson.familyId = currentFamily.id
             
             // 如果是第一个人物，设置为自己
             if managementViewModel.persons.isEmpty {
@@ -125,7 +137,10 @@ class PersonCardViewModel: ObservableObject {
                 objectWillChange.send()
             }
         } else if case .edit = mode {
-            let updatedPerson = createOrUpdatePerson()
+            // 4. 编辑时确保家谱 ID 正确
+            var updatedPerson = createOrUpdatePerson()
+            updatedPerson.familyId = currentFamily.id
+            
             try await managementViewModel.updatePerson(updatedPerson)
             
             // 添加刷新
@@ -138,7 +153,14 @@ class PersonCardViewModel: ObservableObject {
     }
     
     private func createOrUpdatePerson() -> Person {
+        // 获取当前家谱 ID
+        guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            fatalError("未选择当前家谱")  // 在实际开发中应该抛出错误而不是使用 fatalError
+        }
+        
         var person = self.person ?? Person(
+            familyId: currentFamily.id,  // 使用确定存在的 familyId
             firstName: state.basicInfo.firstName,
             lastName: state.basicInfo.lastName,
             gender: state.basicInfo.gender
@@ -301,11 +323,7 @@ class PersonCardViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // 删除这个简单版本的 birthDate
-    // var birthDate: Date {
-    //     state.basicInfo.birthDate ?? Date()
-    // }
-    
+
     var isEditable: Bool {
         mode != .view
     }
@@ -325,11 +343,28 @@ class PersonCardViewModel: ObservableObject {
     var currentPerson: Person? {
         person
     }
-    func deletePerson() async throws {
-        if let person = person {
-            try await managementViewModel.deletePerson(person)
-        }
-    }
+    // 修改 deletePerson 方法
+       func deletePerson() async throws {
+           guard let person = person else { return }
+           
+           // 1. 检查当前家谱
+           guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,
+                 let currentFamily = familyManager.currentFamily else {
+               throw FamilyError.noCurrentFamily
+           }
+           
+           // 2. 检查是否是默认家谱
+           if currentFamily.isDefault {
+               throw FamilyError.cannotModifyDefaultFamily
+           }
+           
+           // 3. 检查人物是否属于当前家谱
+           if person.familyId != currentFamily.id {
+               throw FamilyError.personNotInCurrentFamily
+           }
+           
+           try await managementViewModel.deletePerson(person)
+       }
     
     // 添加称呼生成器
     private var titleGenerator: RelativeTitleGenerator {
@@ -365,10 +400,25 @@ class PersonCardViewModel: ObservableObject {
         }
     }
     
+    // 修改 setSelfPerson 方法中的错误类型
     func setSelfPerson() async throws {
         guard let person = currentPerson else { return }
         
-        print("⏳ 开始设置自己：\(person.firstName)\(person.lastName)")
+        // 1. 检查当前家谱
+        guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,
+              let currentFamily = familyManager.currentFamily else {
+            throw FamilyError.noCurrentFamily
+        }
+        
+        // 2. 检查是否是默认家谱
+        if currentFamily.isDefault {
+            throw FamilyError.defaultFamilyNotEditable  // 修改这里
+        }
+        
+        // 3. 检查人物是否属于当前家谱
+        if person.familyId != currentFamily.id {
+            throw FamilyError.personNotInCurrentFamily
+        }
         
         // 先清除其他人的自己标记并等待完成
         for var otherPerson in managementViewModel.persons where otherPerson.id != person.id && otherPerson.isSelf {
@@ -414,6 +464,23 @@ class PersonCardViewModel: ObservableObject {
         
         
         print("✅ setSelfPerson 执行完成")
+    }
+
+    private func handleFamilyError(_ error: Error) {
+        if let familyError = error as? FamilyError {
+            switch familyError {
+            case .noCurrentFamily:
+                errorMessage = "请先选择一个家谱"
+            case .defaultFamilyNotEditable:
+                errorMessage = "示例家谱不可修改"
+            case .personNotInCurrentFamily:
+                errorMessage = "该人物不属于当前家谱"
+            default:
+                errorMessage = error.localizedDescription
+            }
+        } else {
+            errorMessage = error.localizedDescription
+        }
     }
     
     var isSelfPerson: Bool {

@@ -427,35 +427,3 @@ private struct PersonListView: View {
     }
 }
 
-// MARK: - Previews
-#Preview("关系区域") {
-    let familyViewModel = FamilyTreeViewModel()
-    RelationshipSection(
-        title: "父亲",
-        persons: [
-            Person(firstName: "三", lastName: "张", gender: .male)
-        ],
-        onAddTap: {},
-        onPersonTap: { _ in },
-        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel),
-        animation: Namespace().wrappedValue,
-        selectedPersonId: .constant(nil),
-        type: .father
-    )
-    .padding()
-}
-
-#Preview("空关系区域") {
-    let familyViewModel = FamilyTreeViewModel()
-    RelationshipSection(
-        title: "父母",
-        persons: [],
-        onAddTap: {},
-        onPersonTap: { _ in },
-        viewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel),
-        animation: Namespace().wrappedValue,
-        selectedPersonId: .constant(nil),
-        type: .father
-    )
-    .padding()
-}

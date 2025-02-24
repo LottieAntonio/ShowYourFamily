@@ -1,11 +1,11 @@
 import Foundation
 
 class BasePersonHandler {
-    let dataManager: DataManager
+    let dataManager: DataManaging
     var relationships: [Relationship]
     var persons: [Person]
     
-    init(dataManager: DataManager, relationships: [Relationship], persons: [Person]) {
+    init(dataManager: DataManaging, relationships: [Relationship], persons: [Person]) {
         self.dataManager = dataManager
         self.relationships = relationships
         self.persons = persons
@@ -93,6 +93,8 @@ class BasePersonHandler {
         }.compactMap { relationship in
             persons.first { $0.id == relationship.fromPerson }
         }
+        return []
+
     }
     
     func addChildRelationship(parent: Person, child: Person) async throws {

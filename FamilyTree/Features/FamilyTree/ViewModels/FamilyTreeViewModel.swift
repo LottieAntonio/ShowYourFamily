@@ -7,13 +7,20 @@ class FamilyTreeViewModel: ObservableObject {
     @Published private(set) var relationships: [Relationship] = []
     @Published var isLoading = false
     @Published var selectedPerson: Person?
+    weak var familyManager: FamilyManagementViewModel?  // 改为 weak 可选引用
     
-    private var personsDict: [UUID: Person] = [:] // 添加字典缓存
-    private var relationshipsDict: [UUID: Relationship] = [:] // 添加字典缓存
+    private var personsDict: [UUID: Person] = [:]
+    private var relationshipsDict: [UUID: Relationship] = [:]
     let dataManager: DataManaging
     
-    init(dataManager: DataManaging = DataManager.shared) {
+    init(dataManager: DataManaging) {
         self.dataManager = dataManager
+    }
+    
+    // 修改便利初始化方法，不再使用可选的 familyManager
+    convenience init(familyManager: FamilyManagementViewModel) {
+        self.init(dataManager: familyManager.localDataManager)
+        self.familyManager = familyManager
     }
     
     func savePerson(_ person: Person) async throws {
@@ -69,31 +76,31 @@ class FamilyTreeViewModel: ObservableObject {
     }
     
     func loadData() async throws {
-        if isLoading { return } // 防止重复加载
+        guard let familyManager = familyManager,
+              let currentFamily = familyManager.currentFamily else { return }
         
-        isLoading = true
+        // 只加载当前家谱的数据
+        let persons = try await dataManager.loadPersons(familyId: currentFamily.id)
+        let relationships = try await dataManager.loadRelationships(familyId: currentFamily.id)
+        
+        await MainActor.run {
+            self.persons = persons
+            self.relationships = relationships
+            objectWillChange.send()
+        }
+    }
+    
+    // 添加家谱切换后的数据刷新方法
+    func refreshAfterFamilySwitch() async {
         do {
-            async let loadedPersons = dataManager.getAllPersons()
-            async let loadedRelationships = dataManager.getAllRelationships()
-            
-            // 并行加载数据
-            let (persons, relationships) = try await (loadedPersons, loadedRelationships)
-            
+            try await loadData()
+            // 重置选中状态
             await MainActor.run {
-                // 更新字典缓存
-                self.personsDict = Dictionary(uniqueKeysWithValues: persons.map { ($0.id, $0) })
-                self.relationshipsDict = Dictionary(uniqueKeysWithValues: relationships.map { ($0.id, $0) })
-                
-                // 更新数组
-                self.persons = Array(self.personsDict.values).sorted { $0.id.uuidString < $1.id.uuidString }
-                self.relationships = Array(self.relationshipsDict.values)
-                self.isLoading = false
+                selectedPerson = nil
+                objectWillChange.send()
             }
         } catch {
-            await MainActor.run {
-                self.isLoading = false
-            }
-            throw error
+            print("切换家谱后刷新数据失败：\(error)")
         }
     }
 }

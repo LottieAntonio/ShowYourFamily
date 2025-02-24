@@ -10,8 +10,8 @@ class MembersViewModel: ObservableObject {
     
     private let familyTreeViewModel: FamilyTreeViewModel
     private var cancellables = Set<AnyCancellable>()
-    private lazy var personManager = PersonManagementViewModel(familyTreeViewModel: familyTreeViewModel)
-    
+    private let personManager: PersonManagementViewModel  // 改为普通属性
+        
     // 修改 titleGenerator 的初始化方式
     private var titleGenerator: RelativeTitleGenerator {
         RelativeTitleGenerator(
@@ -22,6 +22,16 @@ class MembersViewModel: ObservableObject {
     
     init(familyTreeViewModel: FamilyTreeViewModel) {
         self.familyTreeViewModel = familyTreeViewModel
+        
+        // 如果 familyManager 不存在，创建一个新的
+        let familyManager = familyTreeViewModel.familyManager ?? 
+            FamilyManagementViewModel(dataManager: familyTreeViewModel.dataManager)
+        
+        // 初始化 personManager
+        self.personManager = PersonManagementViewModel(
+            familyTreeViewModel: familyTreeViewModel,
+            familyManager: familyManager
+        )
         
         familyTreeViewModel.$persons
             .sink { [weak self] persons in

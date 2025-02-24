@@ -20,7 +20,12 @@ struct FamilyTreeContentView: View {
             if viewModel.isLoading {
                 ProgressView("加载中...")
             } else if personManager.persons.isEmpty {
-                FamilyTreeEmptyStateView(showAddPerson: showAddPerson)
+                // 修改这里，确保 showAddPerson 在主线程执行
+                FamilyTreeEmptyStateView(showAddPerson: {
+                    Task { @MainActor in
+                        showAddPerson()
+                    }
+                })
             } else if let currentPerson = personManager.selectedPerson {
                 FamilyTreeGridView(
                     currentPerson: currentPerson,
@@ -35,7 +40,16 @@ struct FamilyTreeContentView: View {
                 )
             }
         }
-        
+        .task {
+            do {
+                // 先加载 viewModel 的数据
+                try await viewModel.loadData()
+                // 确保 viewModel 加载完成后再加载 personManager 的数据
+                try await personManager.loadData()
+            } catch {
+                print("数据加载错误：\(error.localizedDescription)")
+            }
+        }
     }
 }
 

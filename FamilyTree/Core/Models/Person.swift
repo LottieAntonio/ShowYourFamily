@@ -12,6 +12,7 @@ import Foundation
 struct Person: Identifiable, Codable, Hashable {
     let id: UUID
     // 个人信息
+    var familyId: UUID  // 添加这一行
     var firstName: String
     var lastName: String
     
@@ -39,8 +40,16 @@ struct Person: Identifiable, Codable, Hashable {
         case other = "其他"
     }
     
-    init(id: UUID = UUID(), firstName: String, lastName: String, gender: Gender, isSelf: Bool = false) {
+    init(
+        id: UUID = UUID(),
+        familyId: UUID,  // 添加这一行
+        firstName: String,
+        lastName: String,
+        gender: Gender,
+        isSelf: Bool = false
+    ) {
         self.id = id
+        self.familyId = familyId  // 添加这一行
         self.firstName = firstName
         self.lastName = lastName
         self.gender = gender

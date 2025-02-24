@@ -1,9 +1,9 @@
 import Foundation
 
 class PersonDataService {
-    private let dataManager: DataManager
+    private let dataManager: DataManaging  // 改为使用协议类型
     
-    init(dataManager: DataManager) {
+    init(dataManager: DataManaging) {  // 修改初始化方法
         self.dataManager = dataManager
     }
     

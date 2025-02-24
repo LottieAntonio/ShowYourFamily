@@ -107,31 +107,3 @@ private struct StoryRow: View {
     }
 }
 
-#Preview("生活故事") {
-    let familyViewModel = FamilyTreeViewModel()
-    PersonStoriesSection(
-        viewModel: PersonCardViewModel(
-            person: Person(
-                firstName: "三",
-                lastName: "张",
-                gender: .male
-            ).with(
-                stories: [
-                    Story(
-                        title: "童年趣事",
-                        content: "小时候特别喜欢在院子里捉蝴蝶，经常和小伙伴们一起玩耍。",
-                        date: Date()
-                    ),
-                    Story(
-                        title: "求学经历",
-                        content: "高中时期参加奥林匹克数学竞赛获得省一等奖。",
-                        date: Date()
-                    )
-                ]
-            ),
-            mode: .edit,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
-        )
-    )
-    .padding()
-}

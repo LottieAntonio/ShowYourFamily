@@ -4,7 +4,7 @@ struct FamilyTreeEmptyStateView: View {
     let showAddPerson: () -> Void
     
     var body: some View {
-        Button(action: { showAddPerson() }) {
+        Button(action: showAddPerson) {
             VStack(spacing: 16) {
                 Image(systemName: "person.3")
                     .font(.system(size: 48))
@@ -26,5 +26,7 @@ struct FamilyTreeEmptyStateView: View {
             )
         }
         .buttonStyle(.plain)
+        // 添加过渡动画
+        .transition(.opacity.combined(with: .scale))
     }
 }

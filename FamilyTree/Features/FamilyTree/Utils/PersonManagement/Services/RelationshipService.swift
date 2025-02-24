@@ -1,7 +1,7 @@
 import Foundation
 
 class RelationshipService: ObservableObject {
-    private let dataManager: DataManager
+    private let dataManager: DataManaging  // 修改为协议类型
     @Published private(set) var relationships: [Relationship]
     @Published private(set) var persons: [Person]
     
@@ -9,12 +9,12 @@ class RelationshipService: ObservableObject {
     private let siblingHandler: SiblingHandler
     private let spouseHandler: SpouseHandler
     
-    init(dataManager: DataManager, relationships: [Relationship], persons: [Person]) {
+    init(dataManager: DataManaging, relationships: [Relationship], persons: [Person]) {  // 修改为协议类型
         self.dataManager = dataManager
         self.relationships = relationships
         self.persons = persons
         
-        // 初始化处理器时传入 self 作为数据源
+        // 初始化处理器时传入协议类型
         self.parentChildHandler = ParentChildHandler(
             dataManager: dataManager,
             relationships: relationships,

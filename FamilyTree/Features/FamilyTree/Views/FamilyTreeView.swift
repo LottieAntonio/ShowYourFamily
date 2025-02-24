@@ -14,10 +14,17 @@ struct FamilyTreeView: View {
     
     @Namespace private var animation
     
-    init() {
-        let familyViewModel = FamilyTreeViewModel()
+    init(familyManager: FamilyManagementViewModel) {
+        
+        // 创建家谱视图模型并设置 familyManager
+        let familyViewModel = FamilyTreeViewModel(familyManager: familyManager)
+        
+        // 初始化 StateObject
         _viewModel = StateObject(wrappedValue: familyViewModel)
-        _personManager = StateObject(wrappedValue: PersonManagementViewModel(familyTreeViewModel: familyViewModel))
+        _personManager = StateObject(wrappedValue: PersonManagementViewModel(
+            familyTreeViewModel: familyViewModel,
+            familyManager: familyManager
+        ))
     }
     
     @AppStorage("hasInitializedSelf") private var hasInitializedSelf = false
@@ -123,10 +130,14 @@ struct FamilyTreeView: View {
 }
 
 #Preview("家谱") {
-    FamilyTreeView()
+    let dataManager = LocalDataManager()  // 修改这里，直接创建实例
+    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
+    FamilyTreeView(familyManager: familyManager)
 }
 
 #Preview("家谱-深色") {
-    FamilyTreeView()
+    let dataManager = LocalDataManager()  // 修改这里，直接创建实例
+    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
+    FamilyTreeView(familyManager: familyManager)
         .preferredColorScheme(.dark)
 }

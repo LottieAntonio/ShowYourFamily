@@ -1,6 +1,7 @@
 import Foundation
 
 class ParentChildHandler: BasePersonHandler {
+    
     func getParents(for person: Person, type: RelationType) -> [Person] {
         relationships.filter { relationship in
             relationship.fromPerson == person.id && relationship.type == type

@@ -122,33 +122,3 @@ private struct EventRow: View {
     }
 }
 
-#Preview("生活事件") {
-    let familyViewModel = FamilyTreeViewModel()
-    PersonEventsSection(
-        viewModel: PersonCardViewModel(
-            person: Person(
-                firstName: "三",
-                lastName: "张",
-                gender: .male
-            ).with(
-                lifeEvents: [
-                    LifeEvent(
-                        type: .birth,
-                        date: Date(),
-                        location: "北京市",
-                        description: "出生于北京市朝阳区医院"
-                    ),
-                    LifeEvent(
-                        type: .school,  // 将 .graduation 改为 .school
-                        date: Date(),
-                        location: "清华大学",
-                        description: "本科毕业"
-                    )
-                ]
-            ),
-            mode: .edit,
-            managementViewModel: PersonManagementViewModel(familyTreeViewModel: familyViewModel)
-        )
-    )
-    .padding()
-}

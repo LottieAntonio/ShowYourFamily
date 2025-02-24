@@ -6,16 +6,22 @@ struct PersonAvatarView: View {
     let type: RelationType?
     let isEditable: Bool
     
+    init(
+        person: Person,
+        size: CGFloat = 60,
+        type: RelationType? = nil,
+        isEditable: Bool = false
+    ) {
+        self.person = person
+        self.size = size
+        self.type = type
+        self.isEditable = isEditable
+    }
+    
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.familyTheme.gradientFor(.spouse))
-                .overlay {
-                    if let relationType = type {
-                        Circle()
-                            .fill(Color.familyTheme.gradientFor(relationType))
-                    }
-                }
+                .fill(Color.familyTheme.gradientFor(type ?? .spouse))
                 .frame(width: size, height: size)
                 .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             
