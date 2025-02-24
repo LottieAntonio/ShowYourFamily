@@ -102,7 +102,6 @@ class MarriageRelationHandler: BaseRelationHandler {
                     for (_, children) in siblingInfo.motherChildren {
                         for childId in children {
                             if childId != spouseId && childId == target.id {
-                                print("✅ 找到匹配的兄弟姐妹！")
                                 if let isOlder = isOlder(target, than: source) {
                                     if source.gender == .male {
                                         if target.gender == .male {

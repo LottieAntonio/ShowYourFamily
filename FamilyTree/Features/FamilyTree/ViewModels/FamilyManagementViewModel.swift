@@ -21,82 +21,53 @@ class FamilyManagementViewModel: ObservableObject {
     
     // 添加公开的初始化方法
     func initialize() async throws {
-        print("\n=== FamilyManagementViewModel 初始化开始 ===")
-        print("🔄 执行数据初始化...")
-        
-        // 加载示例数据
-        print("📥 加载示例数据...")
         let (family, persons, relationships) = ExampleData.loadExampleData()
         
-        // 保存数据
-        print("💾 保存示例数据...")
-        
-        // 先保存家谱
-        print("📝 保存家谱...")
         try await dataManager.saveFamily(family)
         
-        // 保存人物数据
-        print("👥 保存 \(persons.count) 个成员...")
         try await withThrowingTaskGroup(of: Void.self) { group in
             for person in persons {
                 group.addTask {
                     try await self.dataManager.savePerson(person)
-                    print("✅ 成功保存成员：\(person.firstName) \(person.lastName)")
                 }
             }
             try await group.waitForAll()
         }
         
-        // 保存关系数据
-        print("🔗 保存 \(relationships.count) 个关系...")
         try await withThrowingTaskGroup(of: Void.self) { group in
             for relationship in relationships {
                 group.addTask {
                     try await self.dataManager.saveRelationship(relationship)
-                    print("✅ 成功保存关系：\(relationship.type.rawValue)")
                 }
             }
             try await group.waitForAll()
         }
         
-        print("✅ 数据初始化完成")
-        print("=== FamilyManagementViewModel 初始化结束 ===\n")
-        
-        // 重新加载数据以确保更新
         await loadFamilies()
     }
     
-    // 修改 loadFamilies 方法
     func loadFamilies() async {
-        print("\n=== FamilyManagementViewModel.loadFamilies 开始执行 ===")
         do {
-            print("📥 开始加载家谱数据...")
             families = try await dataManager.loadFamilies()
-            print("✅ 加载成功：\(families.count) 个家谱")
             
-            // 如果没有家谱，不要自动初始化
             if families.isEmpty {
-                print("ℹ️ 没有找到任何家谱")
                 currentFamily = nil
                 persons = []
                 return
             }
             
-            // 只在当前没有选中家谱时，才自动选择默认家谱
             if currentFamily == nil {
                 if let defaultFamily = families.first(where: { $0.isDefault }) {
-                    print("🎯 找到默认家谱：\(defaultFamily.name)")
                     currentFamily = defaultFamily
-                    
-                    // 加载该家谱的所有成员
-                    print("👥 加载家谱成员...")
                     persons = try await dataManager.loadPersons(familyId: defaultFamily.id)
-                    print("✅ 成功加载 \(persons.count) 个成员")
+                    
+                    // 添加这部分，确保 FamilyTreeViewModel 同步更新
+                    if let familyTreeViewModel = familyTreeViewModel {
+                        await familyTreeViewModel.refreshAfterFamilySwitch()
+                    }
                 }
             }
-            print("=== FamilyManagementViewModel.loadFamilies 执行完成 ===\n")
         } catch {
-            print("❌ 加载失败：\(error.localizedDescription)")
             setError(error.localizedDescription)
         }
     }
@@ -253,28 +224,24 @@ class FamilyManagementViewModel: ObservableObject {
     // 修改 switchFamily 方法
     func switchFamily(_ family: Family) async {
         do {
-            print("🔄 开始切换家谱：\(family.name)")
-            
-            // 1. 先加载该家谱的数据
-            let loadedPersons = try await dataManager.loadPersons(familyId: family.id)
-            print("📊 成功加载 \(loadedPersons.count) 个成员")
-            
+            // 1. 先更新当前家谱
             await MainActor.run {
-                // 2. 更新状态
                 self.currentFamily = family
-                self.persons = loadedPersons
-                print("✅ 已设置当前家谱：\(family.name)")
             }
             
-            // 3. 通知 FamilyTreeViewModel 刷新数据
+            // 2. 通知 FamilyTreeViewModel 刷新数据
             if let familyTreeViewModel = familyTreeViewModel {
                 await familyTreeViewModel.refreshAfterFamilySwitch()
-                print("✅ FamilyTreeViewModel 已更新")
             } else {
                 print("⚠️ FamilyTreeViewModel 未设置")
             }
+            
+            // 3. 最后加载人物数据
+            let loadedPersons = try await dataManager.loadPersons(familyId: family.id)
+            await MainActor.run {
+                self.persons = loadedPersons
+            }
         } catch {
-            print("❌ 切换家谱失败：\(error.localizedDescription)")
             setError(error.localizedDescription)
         }
     }

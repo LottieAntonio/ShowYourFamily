@@ -35,12 +35,21 @@ struct ContentView: View {
                 .tag(AppCoordinator.Screen.familyTree)
             
             // 修复：使用 MembersView 而不是直接使用 PersonListView
-            MembersView(familyTreeViewModel: familyViewModel)
-                .environmentObject(personManager)  // 添加 personManager
-                .tabItem {
-                    Label("成员", systemImage: "person.3")
+            Group {
+                if let currentFamily = familyManager.currentFamily {
+                    MembersView(
+                        familyTreeViewModel: familyViewModel,
+                        family: currentFamily
+                    )
+                    .environmentObject(personManager)
+                } else {
+                    ContentUnavailableView("请先选择家谱", systemImage: "person.3.sequence")
                 }
-                .tag(AppCoordinator.Screen.members)
+            }
+            .tabItem {
+                Label("成员", systemImage: "person.3")
+            }
+            .tag(AppCoordinator.Screen.members)
             
             ProfileView()
                 .tabItem {

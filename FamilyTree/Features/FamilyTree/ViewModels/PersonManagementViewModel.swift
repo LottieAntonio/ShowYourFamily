@@ -37,22 +37,23 @@ class PersonManagementViewModel: ObservableObject {
         self.familyTreeViewModel = familyTreeViewModel
         let dataManager = familyTreeViewModel.dataManager
         
-        // 初始化服务，使用协议类型
+        // 初始化服务时使用空数组，避免过早访问 familyTreeViewModel 的属性
         self.titleGenerator = RelativeTitleGenerator(
-            relationships: familyTreeViewModel.relationships,
-            persons: familyTreeViewModel.persons
+            relationships: [],
+            persons: []
         )
         
         self.relationshipService = RelationshipService(
-            dataManager: dataManager,  // 移除强制转换
-            relationships: familyTreeViewModel.relationships,
-            persons: familyTreeViewModel.persons
+            dataManager: dataManager,
+            relationships: [],
+            persons: []
         )
         
-        self.personService = PersonDataService(dataManager: dataManager)  // 移除强制转换
+        self.personService = PersonDataService(dataManager: dataManager)
         
         // 设置数据观察者
         Task { @MainActor in
+            // 初始化完成后再更新数据
             await self.updateData()
             self.setupDataObservers()
         }
@@ -141,23 +142,16 @@ class PersonManagementViewModel: ObservableObject {
     }
     
     // 修改 updatePerson 方法
+    @MainActor
     func updatePerson(_ person: Person) async throws {
-        guard let familyManager = familyTreeViewModel.familyManager,
-              let currentFamily = familyManager.currentFamily else {
-            throw FamilyError.noCurrentFamily
-        }
+        isProcessing = true
+        defer { isProcessing = false }
         
-        // 修改这里：只在编辑默认家谱时抛出错误
-        if currentFamily.isDefault && person.familyId == currentFamily.id {
-            throw FamilyError.defaultFamilyNotEditable
-        }
-        
-        var updatedPerson = person
-        updatedPerson.familyId = currentFamily.id
-        
-        try await familyTreeViewModel.dataManager.savePerson(updatedPerson)
+        try await familyTreeViewModel.dataManager.savePerson(person)  // 修改这里
         await loadData()
     }
+    
+   
     
     // 修改 addRelationship 方法
     func addRelationship(from: Person, to: Person, type: RelationType) async throws {

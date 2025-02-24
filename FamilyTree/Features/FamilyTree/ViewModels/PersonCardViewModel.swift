@@ -14,11 +14,22 @@ import Foundation
 class PersonCardViewModel: ObservableObject {
     @Published private(set) var state: PersonCardState
     @Published var errorMessage: String?
-    // 删除 isLoading 和 isSettingSelf
     
     private let person: Person?
     private let managementViewModel: PersonManagementViewModel
     let mode: PersonCardMode
+    // 添加 targetPerson 属性
+    // 修改 targetPerson 属性
+    private var targetPerson: Person? {
+        if case .add(let relationType) = mode,
+           let relationType = relationType {
+            // 使用 managementViewModel 的 selectedPerson 作为目标人物
+            return managementViewModel.selectedPerson
+        }
+        return nil
+    }
+    
+    // 删除 isLoading 和 isSettingSelf
     
     // 添加公开的访问器
     var personManagementViewModel: PersonManagementViewModel {
@@ -101,54 +112,109 @@ class PersonCardViewModel: ObservableObject {
             throw FamilyError.noCurrentFamily
         }
         
-        // 修改这里：只在编辑默认家谱时抛出错误
-        if currentFamily.isDefault && (person?.familyId == currentFamily.id) {
+        if currentFamily.isDefault && person != nil {
             throw FamilyError.defaultFamilyNotEditable
         }
         
         if case .add(let relationType) = mode {
-            // 3. 创建新人物时设置家谱 ID
             var newPerson = createOrUpdatePerson()
             newPerson.familyId = currentFamily.id
             
-            // 如果是第一个人物，设置为自己
             if managementViewModel.persons.isEmpty {
                 newPerson.isSelf = true
             }
             
+            // 先保存新人物
             try await managementViewModel.updatePerson(newPerson)
-            // 如果是第一个人物，设置为选中的人物
+            
             if managementViewModel.persons.isEmpty {
                 managementViewModel.selectedPerson = newPerson
             }
             
-            // 如果有关系类型，创建关系
-            if let relationType = relationType,
-               let currentPerson = managementViewModel.selectedPerson {
-                try await managementViewModel.addRelationship(
-                    from: currentPerson,
-                    to: newPerson,
-                    type: relationType
-                )
-                // 删除手动更新称呼的代码，因为 addRelationship 会处理这些
-            }
-            
-            await MainActor.run {
-                objectWillChange.send()
+            // 如果需要添加关系，确保有目标人物
+            if let relationType = relationType {
+                guard let targetPerson = self.targetPerson else {
+                    print("⚠️ 未找到目标人物，跳过添加关系")
+                    print("📝 当前模式：\(mode)")
+                    print("📝 选中的人物：\(managementViewModel.selectedPerson?.firstName ?? "无")")
+                    return
+                }
+                print("✅ 开始添加关系：从 \(newPerson.firstName) 到 \(targetPerson.firstName)，类型：\(relationType)")
+                
+                // 根据关系类型调整关系方向
+                switch relationType {
+                case .father, .mother:
+                    // 如果是添加父母，则目标人物是子女，新人物是父母
+                    try await managementViewModel.addRelationship(from: targetPerson, to: newPerson, type: relationType)
+                    
+                    // 检查是否存在另一个父母，如果存在则添加配偶关系
+                    let otherParentType: RelationType = relationType == .father ? .mother : .father
+                    if let otherParent = managementViewModel.relationshipService.getRelatedPersons(
+                        for: targetPerson,
+                        relationType: otherParentType
+                    ).first {
+                        // 添加配偶关系
+                        try await managementViewModel.addRelationship(from: newPerson, to: otherParent, type: .spouse)
+                    }
+                    
+                case .child:
+                    // 如果是添加子女，则目标人物是父母，新人物是子女
+                    try await managementViewModel.addRelationship(from: newPerson, to: targetPerson, type: relationType)
+                    
+                    // 如果目标人物有配偶，也添加子女关系
+                    let spouses = managementViewModel.relationshipService.getRelatedPersons(
+                        for: targetPerson,
+                        relationType: .spouse
+                    )
+                    for spouse in spouses {
+                        try await managementViewModel.addRelationship(from: newPerson, to: spouse, type: relationType)
+                    }
+                    
+                case .spouse:
+                    // 配偶关系是双向的
+                    try await managementViewModel.addRelationship(from: newPerson, to: targetPerson, type: .spouse)
+                    try await managementViewModel.addRelationship(from: targetPerson, to: newPerson, type: .spouse)
+                    
+                    // 如果对方有子女，将新人物也设置为这些子女的父母
+                    let children = managementViewModel.relationshipService.getRelatedPersons(
+                        for: targetPerson,
+                        relationType: .child
+                    )
+                    for child in children {
+                        try await managementViewModel.addRelationship(
+                            from: child,
+                            to: newPerson,
+                            type: newPerson.gender == .male ? .father : .mother
+                        )
+                    }
+                    
+                case .brother, .sister:
+                    // 兄弟姐妹关系
+                    try await managementViewModel.addRelationship(from: newPerson, to: targetPerson, type: relationType)
+                    try await managementViewModel.addRelationship(from: targetPerson, to: newPerson, type: relationType)
+                    
+                    // 获取目标人物的父母，将新人物也设置为其子女
+                    let parents = managementViewModel.relationshipService.getRelatedPersons(
+                        for: targetPerson,
+                        relationType: .father
+                    ) + managementViewModel.relationshipService.getRelatedPersons(
+                        for: targetPerson,
+                        relationType: .mother
+                    )
+                    
+                    for parent in parents {
+                        try await managementViewModel.addRelationship(
+                            from: newPerson,
+                            to: parent,
+                            type: parent.gender == .male ? .father : .mother
+                        )
+                    }
+                }
+                
+                print("✅ 关系添加成功")
             }
         } else if case .edit = mode {
-            // 4. 编辑时确保家谱 ID 正确
-            var updatedPerson = createOrUpdatePerson()
-            updatedPerson.familyId = currentFamily.id
-            
-            try await managementViewModel.updatePerson(updatedPerson)
-            
-            // 添加刷新
-            await MainActor.run {
-                objectWillChange.send()
-                // 更新 managementViewModel 的选中人物
-                managementViewModel.selectedPerson = updatedPerson
-            }
+            try await managementViewModel.updatePerson(createOrUpdatePerson())
         }
     }
     
@@ -375,20 +441,30 @@ class PersonCardViewModel: ObservableObject {
     }
    
     
-    @MainActor  // 只保留一个 @MainActor
+    @MainActor
     func reloadData() async {
-        // 先重新加载 managementViewModel 的数据
-        await managementViewModel.loadData()
+        guard let familyManager = managementViewModel.familyTreeViewModel.familyManager else {
+            print("⚠️ FamilyTreeViewModel 未设置")
+            return
+        }
         
-        // 然后更新本地状态
-        if let person = managementViewModel.persons.first(where: { $0.id == currentPerson?.id }) {
-            self.state = PersonCardState.from(person)
-            objectWillChange.send()
+        print("🔄 开始重新加载数据...")
+        
+        do {
+            try await managementViewModel.familyTreeViewModel.loadData()
+            
+            if let person = managementViewModel.persons.first(where: { $0.id == currentPerson?.id }) {
+                self.state = PersonCardState.from(person)
+                objectWillChange.send()
+                print("✅ 数据加载完成：\(managementViewModel.persons.count) 个成员")
+            } else {
+                print("⚠️ 未找到当前人物")
+            }
+        } catch {
+            print("❌ 加载数据失败：\(error.localizedDescription)")
+            errorMessage = "加载数据失败：\(error.localizedDescription)"
         }
     }
-    
-    // 添加状态控制属性
-    @Published var isSettingSelf = false  // 添加这个状态变量
     
     @MainActor
     func setSelf() async {
@@ -396,7 +472,7 @@ class PersonCardViewModel: ObservableObject {
             // 使用已有的 setSelfPerson 方法
             try? await setSelfPerson()
             // 重新加载数据以更新称呼
-            await managementViewModel.loadData()
+            try? await managementViewModel.familyTreeViewModel.loadData()  // 修改这里
         }
     }
     
@@ -448,7 +524,7 @@ class PersonCardViewModel: ObservableObject {
         
         // 重新加载数据（这会同时更新所有人的称呼）
         print("⏳ 重新加载数据")
-        await managementViewModel.loadData()
+        try await managementViewModel.familyTreeViewModel.loadData()  // 修改这里，明确指定调用路径
         
         // 通知所有相关视图模型更新
         try await managementViewModel.familyTreeViewModel.loadData()

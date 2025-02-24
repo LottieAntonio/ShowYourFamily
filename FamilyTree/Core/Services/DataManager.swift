@@ -34,37 +34,24 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
     
     private func loadDataSync() {
         do {
-            // 同步加载所有数据
             let loadedPersons = try localDataManager.loadPersonsSync()
             let loadedRelationships = try localDataManager.loadRelationshipsSync()
             
-            // 更新内存数据
             persons = Dictionary(uniqueKeysWithValues: loadedPersons.map { ($0.id, $0) })
             relationships = Dictionary(uniqueKeysWithValues: loadedRelationships.map { ($0.id, $0) })
-            
-            print("✅ 成功加载数据 - 人物: \(loadedPersons.count), 关系: \(loadedRelationships.count)")
         } catch {
-            print("❌ 加载数据失败: \(error.localizedDescription)")
-            // 确保字典被初始化为空
             persons = [:]
             relationships = [:]
         }
     }
     
-   
-    
     func saveRelationship(_ relationship: Relationship) async throws {
         do {
-            // 先保存到本地
             try await localDataManager.saveRelationship(relationship)
-            print("✅ 保存关系成功: \(relationship.id)")
-            
-            // 再更新内存
             await MainActor.run {
                 relationships[relationship.id] = relationship
             }
         } catch {
-            print("❌ 保存关系失败: \(error.localizedDescription)")
             throw error
         }
     }
@@ -182,13 +169,11 @@ class DataManager: DataManaging, ObservableObject {  // 添加 ObservableObject 
         
         do {
             try await localDataManager.savePerson(person)
-            print("✅ 保存人物成功: \(person.firstName)\(person.lastName)")
             
             await MainActor.run {
                 persons[person.id] = person
             }
         } catch {
-            print("❌ 保存人物失败: \(error.localizedDescription)")
             throw error
         }
     }

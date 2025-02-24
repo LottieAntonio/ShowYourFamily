@@ -10,9 +10,44 @@ class MembersViewModel: ObservableObject {
     
     private let familyTreeViewModel: FamilyTreeViewModel
     private var cancellables = Set<AnyCancellable>()
-    private let personManager: PersonManagementViewModel  // 改为普通属性
+    private let personManager: PersonManagementViewModel
+    private let familyManager: FamilyManagementViewModel  // 添加强引用
         
-    // 修改 titleGenerator 的初始化方式
+    init(familyTreeViewModel: FamilyTreeViewModel) {
+        self.familyTreeViewModel = familyTreeViewModel
+        
+        // 使用已存在的 familyManager，避免重复创建
+        if let existingFamilyManager = familyTreeViewModel.familyManager {
+            self.familyManager = existingFamilyManager
+            self.personManager = PersonManagementViewModel(
+                familyTreeViewModel: familyTreeViewModel,
+                familyManager: existingFamilyManager
+            )
+        } else {
+            // 只在必要时创建新的 familyManager
+            let familyManager = FamilyManagementViewModel(dataManager: familyTreeViewModel.dataManager)
+            self.familyManager = familyManager
+            
+            print("📝 设置 FamilyTreeViewModel 的 familyManager")
+            familyTreeViewModel.familyManager = familyManager
+            familyManager.setFamilyTreeViewModel(familyTreeViewModel)
+            
+            self.personManager = PersonManagementViewModel(
+                familyTreeViewModel: familyTreeViewModel,
+                familyManager: familyManager
+            )
+        }
+        
+        // 设置数据观察
+        setupObservers()
+        
+        // 同步初始数据
+        self.persons = familyTreeViewModel.persons
+        
+        print("✅ MembersViewModel 初始化完成")
+    }
+    
+    // 添加 titleGenerator 属性
     private var titleGenerator: RelativeTitleGenerator {
         RelativeTitleGenerator(
             relationships: familyTreeViewModel.relationships,
@@ -20,28 +55,69 @@ class MembersViewModel: ObservableObject {
         )
     }
     
-    init(familyTreeViewModel: FamilyTreeViewModel) {
-        self.familyTreeViewModel = familyTreeViewModel
-        
-        // 如果 familyManager 不存在，创建一个新的
-        let familyManager = familyTreeViewModel.familyManager ?? 
-            FamilyManagementViewModel(dataManager: familyTreeViewModel.dataManager)
-        
-        // 初始化 personManager
-        self.personManager = PersonManagementViewModel(
-            familyTreeViewModel: familyTreeViewModel,
-            familyManager: familyManager
-        )
-        
+    
+    private func setupObservers() {
+        // 使用 removeDuplicates 避免重复更新
         familyTreeViewModel.$persons
+            .removeDuplicates()  // 添加这行
             .sink { [weak self] persons in
                 self?.persons = persons
-                // 当 persons 更新时，预加载所有称谓
-                Task { [weak self] in
+                // 移到主线程执行，避免多次更新
+                Task { @MainActor [weak self] in
                     await self?.preloadAllTitles()
                 }
             }
             .store(in: &cancellables)
+    }
+    
+    func loadData() async {
+        do {
+            print("📱 MembersViewModel 开始加载数据")
+            
+            // 确保 familyManager 已设置
+            guard let familyManager = familyTreeViewModel.familyManager else {
+                print("⚠️ loadData 时 familyManager 为空")
+                throw FamilyError.noCurrentFamily
+            }
+            
+            // 先加载家谱列表
+            print("📝 开始加载家谱列表")
+            await familyManager.loadFamilies()
+            
+            // 如果没有选择当前家谱，尝试选择第一个可用的家谱
+            if familyManager.currentFamily == nil {
+                print("📝 尝试选择默认家谱")
+                if let firstFamily = familyManager.families.first {
+                    await familyManager.switchFamily(firstFamily)
+                    print("✅ 已选择家谱：\(firstFamily.name)")
+                } else {
+                    print("⚠️ 没有可用的家谱")
+                    throw FamilyError.noCurrentFamily
+                }
+            }
+            
+            guard let currentFamily = familyManager.currentFamily else {
+                print("⚠️ 未选择当前家谱")
+                throw FamilyError.noCurrentFamily
+            }
+            
+            print("📱 正在加载家谱[\(currentFamily.name)]的数据")
+            
+            // 先清空缓存
+            titleCache.removeAll()
+            
+            // 直接加载数据，移除多余的刷新调用
+            try await familyTreeViewModel.loadData()
+            print("✅ FamilyTreeViewModel 数据加载完成，persons: \(familyTreeViewModel.persons.count)")
+            
+            // 预加载称谓
+            await preloadAllTitles()
+            
+            print("✅ MembersViewModel 数据加载完成")
+        } catch {
+            print("❌ MembersViewModel 加载数据失败：\(error)")
+            errorMessage = "加载数据失败：\(error.localizedDescription)"
+        }
     }
     
     // 添加预加载称谓的方法
@@ -55,27 +131,7 @@ class MembersViewModel: ObservableObject {
     }
     
     
-    func loadData() async {
-        do {
-            // 先清空缓存
-            titleCache.removeAll()
-            
-            // 加载数据
-            try await familyTreeViewModel.loadData()
-            
-            // 确保所有称谓都已预加载完成
-            for person in persons where !person.isSelf {
-                if let title = await titleGenerator.generateTitle(for: person) {
-                    titleCache[person.id] = title
-                }
-            }
-            
-            // 通知 UI 更新
-            objectWillChange.send()
-        } catch {
-            errorMessage = "加载数据失败：\(error.localizedDescription)"
-        }
-    }
+    
     
     private func getParents(for person: Person) -> (father: Person?, mother: Person?) {
         let father = getRelatedPersons(for: person, relationType: .father).first
@@ -161,6 +217,11 @@ class MembersViewModel: ObservableObject {
         }
         
         return nil
+    }
+    
+    // 添加公开方法用于切换家谱
+    func switchFamily(_ family: Family) async {
+        await familyManager.switchFamily(family)
     }
 }
         

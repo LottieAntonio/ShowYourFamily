@@ -12,15 +12,16 @@ struct FamilyTreeContentView: View {
     var showAddPerson: () -> Void
     var showAddRelation: (Person, RelationType, String?, Person.Gender?) async -> Void
     
+    @State private var isLocalLoading = true  // 添加本地加载状态
+    
     var body: some View {
         ZStack {
             Color.familyTheme.primary.opacity(0.2)
                 .ignoresSafeArea()
             
-            if viewModel.isLoading {
+            if isLocalLoading {
                 ProgressView("加载中...")
             } else if personManager.persons.isEmpty {
-                // 修改这里，确保 showAddPerson 在主线程执行
                 FamilyTreeEmptyStateView(showAddPerson: {
                     Task { @MainActor in
                         showAddPerson()
@@ -41,14 +42,28 @@ struct FamilyTreeContentView: View {
             }
         }
         .task {
-            do {
-                // 先加载 viewModel 的数据
-                try await viewModel.loadData()
-                // 确保 viewModel 加载完成后再加载 personManager 的数据
-                try await personManager.loadData()
-            } catch {
-                print("数据加载错误：\(error.localizedDescription)")
+            await loadInitialData()
+        }
+        .onChange(of: showingPersonCard) { isShowing in
+            if !isShowing {
+                // 当表单关闭时重新加载数据
+                Task {
+                    await loadInitialData()
+                }
             }
+        }
+    }
+    
+    // 添加数据加载方法
+    private func loadInitialData() async {
+        do {
+            isLocalLoading = true
+            try await viewModel.loadData()
+            try await personManager.loadData()
+            isLocalLoading = false
+        } catch {
+            print("数据加载错误：\(error.localizedDescription)")
+            isLocalLoading = false
         }
     }
 }

@@ -5,23 +5,32 @@ struct MembersView: View {
     @EnvironmentObject private var personManager: PersonManagementViewModel
     @State private var showingPersonCard = false
     @State private var selectedMode: PersonCardMode = .view
+    let family: Family  // 添加当前家谱属性
     
-    init(familyTreeViewModel: FamilyTreeViewModel) {
-        _viewModel = StateObject(wrappedValue: MembersViewModel(familyTreeViewModel: familyTreeViewModel))
+    init(familyTreeViewModel: FamilyTreeViewModel, family: Family) {
+        self.family = family
+        let membersViewModel = MembersViewModel(familyTreeViewModel: familyTreeViewModel)
+        _viewModel = StateObject(wrappedValue: membersViewModel)
     }
     
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(viewModel.persons) { person in
-                    PersonRow(person: person, viewModel: viewModel)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            viewModel.selectedPerson = person
-                            personManager.selectedPerson = person
-                            selectedMode = .edit
-                            showingPersonCard = true
+            Group {
+                if viewModel.persons.isEmpty {
+                    ContentUnavailableView("暂无成员", systemImage: "person.slash")
+                } else {
+                    List {
+                        ForEach(viewModel.persons) { person in
+                            PersonRow(person: person, viewModel: viewModel)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    viewModel.selectedPerson = person
+                                    personManager.selectedPerson = person
+                                    selectedMode = .edit
+                                    showingPersonCard = true
+                                }
                         }
+                    }
                 }
             }
             .navigationTitle("家庭成员")
@@ -34,12 +43,13 @@ struct MembersView: View {
                     )
                 }
             }
-            
-            .onAppear {
-                Task {
-                    await viewModel.loadData()
-                }
-            }
+        }
+        .task {
+            print("开始加载[\(family.name)]成员数据")
+            // 确保先切换到正确的家谱
+            await viewModel.switchFamily(family)
+            await viewModel.loadData()
+            print("[\(family.name)]成员数据加载完成：\(viewModel.persons.count) 个成员")
         }
     }
 }
@@ -75,19 +85,11 @@ struct PersonRow: View {
         }
         .padding(.vertical, 4)
         .task {
-            // 首次加载时获取称谓
             if !person.isSelf {
                 title = await viewModel.getRelativeTitle(for: person)
             }
         }
-        .onReceive(viewModel.$persons) { _ in
-            // 数据更新时重新获取称谓
-            if !person.isSelf {
-                Task {
-                    title = await viewModel.getRelativeTitle(for: person)
-                }
-            }
-        }
+        // 移除 onReceive，因为 titleCache 的更新已经会触发 UI 刷新
     }
 }
 

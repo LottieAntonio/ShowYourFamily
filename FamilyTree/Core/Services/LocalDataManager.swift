@@ -15,7 +15,6 @@ class LocalDataManager: DataManaging {
                 userInfo: [NSLocalizedDescriptionKey: "无法获取文档目录"]
             )
         }
-        print("📁 文档目录：\(documentsDirectory.path)")
         return documentsDirectory
     }
     
@@ -50,14 +49,10 @@ class LocalDataManager: DataManaging {
     func loadPersons(familyId: UUID) async throws -> [Person] {
         let fileName = getPersonsFileName(for: familyId)
         do {
-            print("📝 尝试加载 \(fileName)...")
             let persons = try FileManager.load([Person].self, from: fileName)
-            print("✅ 成功加载 \(persons.count) 个成员")
             return persons
         } catch {
-            print("⚠️ 加载 \(fileName) 失败：\(error.localizedDescription)")
             if (error as? FileError) == .fileNotFound {
-                print("📝 文件不存在，返回空数组")
                 return []
             }
             throw error
@@ -68,7 +63,6 @@ class LocalDataManager: DataManaging {
     
     func savePerson(_ person: Person) async throws {
         let fileName = getPersonsFileName(for: person.familyId)
-        print("💾 保存成员到 \(fileName)：\(person.firstName) \(person.lastName)")
         
         var persons: [Person] = []
         do {
@@ -84,7 +78,6 @@ class LocalDataManager: DataManaging {
         }
         
         try FileManager.save(persons, to: fileName)
-        print("✅ 成功保存到 \(fileName)")
     }
     
     func saveRelationship(_ relationship: Relationship) async throws {
@@ -94,7 +87,6 @@ class LocalDataManager: DataManaging {
         }
         
         let fileName = getRelationshipsFileName(for: person.familyId)
-        print("💾 保存关系到 \(fileName)：\(relationship.type.rawValue)")
         
         var relationships: [Relationship] = []
         do {
@@ -110,7 +102,6 @@ class LocalDataManager: DataManaging {
         }
         
         try FileManager.save(relationships, to: fileName)
-        print("✅ 成功保存到 \(fileName)")
     }
     
     func deletePerson(_ personId: UUID) async throws {
@@ -152,19 +143,15 @@ class LocalDataManager: DataManaging {
         if !FileManager.default.fileExists(atPath: familiesUrl.path) {
             // 只在第一次启动时创建示例家谱
             if !UserDefaults.standard.bool(forKey: "hasInitializedFamilyTree") {
-                print("\n🔄 首次启动，创建示例家谱...")
                 
                 // 清除所有数据和缓存
-                print("🗑 清除现有数据...")
                 try? FileManager.delete(familiesFileName)
                 FileManager.clearCache()
                 
                 // 加载示例数据
-                print("\n📥 加载示例数据...")
                 let (family, persons, relationships) = ExampleData.loadExampleData()
                 
                 // 保存家谱
-                print("\n💾 保存数据到文件...")
                 try FileManager.save([family], to: familiesFileName)
                 
                 // 保存所有数据
@@ -179,18 +166,14 @@ class LocalDataManager: DataManaging {
                 // 标记已初始化
                 UserDefaults.standard.set(true, forKey: "hasInitializedFamilyTree")
                 
-                print("\n✅ 初始化完成")
                 return [family]
             }
             
-            print("📝 families.json 不存在，返回空数组")
             return []
         }
         
         // 正常加载逻辑
-        print("\n📖 执行正常加载流程...")
         let families = try FileManager.load([Family].self, from: familiesFileName)
-        print("✅ 成功加载 \(families.count) 个家谱")
         return families
     }
 
@@ -198,11 +181,9 @@ class LocalDataManager: DataManaging {
    
     
     func savePersons(_ persons: [Person]) async throws {
-        print("📝 开始保存 \(persons.count) 个人物...")
         for person in persons {
             try await savePerson(person)
         }
-        print("✅ 人物保存完成")
     }
     
     // 保存家谱
@@ -222,14 +203,10 @@ class LocalDataManager: DataManaging {
     func loadRelationships(familyId: UUID) async throws -> [Relationship] {
         let fileName = getRelationshipsFileName(for: familyId)
         do {
-            print("📝 尝试加载 \(fileName)...")
             let relationships = try FileManager.load([Relationship].self, from: fileName)
-            print("✅ 成功加载 \(relationships.count) 个关系")
             return relationships
         } catch {
-            print("⚠️ 加载 \(fileName) 失败：\(error.localizedDescription)")
             if (error as? FileError) == .fileNotFound {
-                print("📝 文件不存在，返回空数组")
                 return []
             }
             throw error

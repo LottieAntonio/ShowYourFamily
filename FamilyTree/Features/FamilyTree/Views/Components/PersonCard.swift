@@ -152,15 +152,19 @@ struct PersonCard: View {
         Task {
             do {
                 try await viewModel.save()
-                // 添加一个小延迟确保数据更新
-                try await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
-                await MainActor.run {
-                    // 强制视图刷新
-                    viewModel.objectWillChange.send()
-                }
                 dismiss()
             } catch {
-                viewModel.errorMessage = error.localizedDescription
+                showingAlert = true
+            }
+        }
+    }
+    
+    private func deletePerson() {
+        Task {
+            do {
+                try await viewModel.deletePerson()  // 修改这里，使用 deletePerson 而不是 delete
+                dismiss()
+            } catch {
                 showingAlert = true
             }
         }

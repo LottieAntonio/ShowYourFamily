@@ -46,18 +46,15 @@ class RelationshipService: ObservableObject {
     }
     
     func addRelationship(from: Person, to: Person, type: RelationType) async throws {
-        // 基本验证
         if from.id == to.id {
             throw RelationshipError.invalidRelationship("不能与自己建立关系")
         }
         
-        // 检查是否已存在关系
         let existingRelations = getRelatedPersons(for: from, relationType: type)
         if existingRelations.contains(where: { $0.id == to.id }) {
-            return // 如果关系已存在，直接返回
+            return
         }
         
-        // 检查是否存在冲突的关系
         if await hasConflictingRelationship(from: from, to: to, type: type) {
             throw RelationshipError.conflictingRelationship("存在冲突的关系")
         }

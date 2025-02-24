@@ -15,12 +15,13 @@ struct FamilyTreeView: View {
     @Namespace private var animation
     
     init(familyManager: FamilyManagementViewModel) {
+        // 1. 获取或创建 FamilyTreeViewModel
+        let familyViewModel = familyManager.familyTreeViewModel ?? FamilyTreeViewModel(familyManager: familyManager)
         
-        // 创建家谱视图模型并设置 familyManager
-        let familyViewModel = FamilyTreeViewModel(familyManager: familyManager)
-        
-        // 初始化 StateObject
+        // 2. 初始化 StateObject
         _viewModel = StateObject(wrappedValue: familyViewModel)
+        
+        // 3. 创建 PersonManagementViewModel
         _personManager = StateObject(wrappedValue: PersonManagementViewModel(
             familyTreeViewModel: familyViewModel,
             familyManager: familyManager
@@ -61,13 +62,19 @@ struct FamilyTreeView: View {
             .onChange(of: personManager.persons) { newPersons in
                 // 如果人物列表发生变化
                 if !newPersons.isEmpty {
-                    // 如果是新添加的人物
-                    if let lastPerson = newPersons.last,
-                       !personManager.persons.contains(where: { $0.id == lastPerson.id }) {
-                        // 将新添加的人物设置为当前选中的人物
-                        personManager.selectedPerson = lastPerson
-                        // 同时更新 lastSelectedPersonId
-                        lastSelectedPersonId = lastPerson.id.uuidString
+                    // 如果是新添加的人物（通过比较数组长度和最后一个元素）
+                    if newPersons.count > personManager.persons.count,
+                       let lastPerson = newPersons.last {
+                        Task { @MainActor in
+                            // 将新添加的人物设置为当前选中的人物
+                            personManager.selectedPerson = lastPerson
+                            // 同时更新 lastSelectedPersonId
+                            lastSelectedPersonId = lastPerson.id.uuidString
+                            // 关闭添加表单
+                            showingPersonCard = false
+                            // 强制重新加载数据
+                            await personManager.loadData()
+                        }
                     }
                 }
             }

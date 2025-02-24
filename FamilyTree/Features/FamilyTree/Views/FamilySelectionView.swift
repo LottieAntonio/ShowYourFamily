@@ -7,9 +7,13 @@ struct FamilySelectionView: View {
     @State private var showingCreateOptions = false  // 添加状态变量
     
     init(dataManager: LocalDataManager = LocalDataManager()) {
+        // 1. 先创建 FamilyManagementViewModel
         let familyManagerVM = FamilyManagementViewModel(dataManager: dataManager)
+        
+        // 2. 创建 FamilyTreeViewModel 并自动设置双向引用
         let familyTreeVM = FamilyTreeViewModel(familyManager: familyManagerVM)
-        familyManagerVM.setFamilyTreeViewModel(familyTreeVM)
+        
+        // 3. 初始化 StateObject
         _familyManager = StateObject(wrappedValue: familyManagerVM)
     }
     
@@ -198,11 +202,12 @@ struct FamilySelectionView: View {
 }
 
 
-#Preview("有数据") {
-    let dataManager = PreviewDataManager()
-    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
-    return FamilySelectionView(dataManager: dataManager)
-}
+// 删除这个预览
+// #Preview("有数据") {
+//     let dataManager = PreviewDataManager()
+//     let familyManager = FamilyManagementViewModel(dataManager: dataManager)
+//     return FamilySelectionView(dataManager: dataManager)
+// }
 
 // 添加预览用的 DataManager
 private class PreviewDataManager: LocalDataManager {
@@ -213,9 +218,30 @@ private class PreviewDataManager: LocalDataManager {
                 name: "示例家谱",
                 description: "这是一个示例家谱，用于展示功能",
                 isDefault: true
+            ),
+            Family(
+                id: UUID(),
+                name: "我的家谱",
+                description: "这是一个用户创建的家谱",
+                isDefault: false
             )
         ]
     }
+    
+    override func loadPersons(familyId: UUID) async throws -> [Person] {
+        return [
+            Person(familyId: familyId, firstName: "张", lastName: "三", gender: .male),
+            Person(familyId: familyId, firstName: "李", lastName: "四", gender: .female)
+        ]
+    }
+    
+    override func loadRelationships(familyId: UUID) async throws -> [Relationship] {
+        return []
+    }
+}
+
+#Preview("家谱选择") {
+    FamilySelectionView(dataManager: PreviewDataManager())
 }
 
 // 添加新的选项视图

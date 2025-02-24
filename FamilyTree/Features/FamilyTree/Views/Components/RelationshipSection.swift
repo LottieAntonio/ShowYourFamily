@@ -29,14 +29,12 @@ struct RelationshipSection: View {
         
         switch type {
         case .spouse, .child:
-            return CGSize(width: max(screenWidth, minWidth), height: 100)
+            return CGSize(width: screenWidth, height: 100)
         default:
-            let calculatedWidth = (screenWidth - padding) / 2
-            return CGSize(width: max(calculatedWidth, minWidth), height: 100)
+            let calculatedWidth = max((screenWidth - padding) / 2, minWidth)
+            return CGSize(width: calculatedWidth, height: 100)
         }
     }
-    
-    @State private var showingPotentialParents = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,7 +53,11 @@ struct RelationshipSection: View {
                     viewModel: viewModel
                 )
             } else {
-                ScrollView(persons.count == 1 ? .vertical : .horizontal, showsIndicators: false) {
+                // 计算唯一人数
+                let uniqueCount = type == .spouse ? 
+                    Set(persons.map { $0.id }).count : persons.count
+                
+                ScrollView(uniqueCount == 1 ? .vertical : .horizontal, showsIndicators: false) {
                     HStack {
                         PersonListView(
                             persons: persons,
@@ -71,7 +73,7 @@ struct RelationshipSection: View {
         }
         .padding(8)
         .frame(
-            width: type == .spouse || type == .child ? .infinity : sectionSize.width,
+            width: type == .spouse || type == .child ? nil : sectionSize.width, // 修改这里
             height: sectionSize.height,
             alignment: .top
         )
@@ -211,7 +213,7 @@ private struct PersonItemView: View {
         }
         .buttonStyle(.plain)
         .matchedGeometryEffect(
-            id: person.id,
+            id: "\(type.rawValue)_\(person.id)",  // 修改这里，使用相同的组合 ID
             in: animation,
             isSource: !isSelected
         )
@@ -249,6 +251,8 @@ private struct PersonItemView: View {
 }
 
 // MARK: - Subviews
+
+// 修改 HeaderView 和 EmptyStateView 中的调用
 private struct HeaderView: View {
     let title: String
     let onAddTap: () -> Void
@@ -258,6 +262,16 @@ private struct HeaderView: View {
     @State private var processingParentId: UUID?
     let localPersons: [Person]
     
+    @State private var canAdd: Bool = true  // 添加状态属性
+    
+    private var uniquePersonCount: Int {
+        if type == .spouse {
+            // 对配偶进行去重计数
+            return Set(localPersons.map { $0.id }).count
+        }
+        return localPersons.count
+    }
+    
     var body: some View {
         HStack {
             HStack(spacing: 4) {
@@ -265,18 +279,29 @@ private struct HeaderView: View {
                     .font(.caption)
                     .foregroundStyle(Color.familyTheme.primary)
                     
-                    // 当人物数量大于1时显示数量
-                if localPersons.count > 1 {
-                    Text("(\(localPersons.count))")
+                    // 使用去重后的数量
+                    if uniquePersonCount > 1 {
+                        Text("(\(uniquePersonCount))")
                             .font(.caption)
                             .foregroundStyle(Color.familyTheme.primary.opacity(0.6))
                     }
             }
             Spacer()
             Menu {
-                // 添加新人物按钮
-                Button(action: onAddTap) {
-                    Label("添加新\(title)", systemImage: "person.badge.plus")
+                if type == .brother || type == .sister {
+                    if canAdd {
+                        Button(action: onAddTap) {
+                            Label("添加新\(title)", systemImage: "person.badge.plus")
+                        }
+                    } else {
+                        Text("需要先添加父母才能添加\(title)")
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    // 非兄弟姐妹关系，直接显示添加按钮
+                    Button(action: onAddTap) {
+                        Label("添加新\(title)", systemImage: "person.badge.plus")
+                    }
                 }
                 
                 // 只在父母关系中显示选择现有人物选项
@@ -325,10 +350,40 @@ private struct HeaderView: View {
                     .font(.callout)
             }
             .disabled(processingParentId != nil)
+            .task {
+                if type == .brother || type == .sister {
+                    canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                }
+            }
+            .onChange(of: viewModel.persons) { _ in
+                if type == .brother || type == .sister {
+                    Task {
+                        canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                    }
+                }
+            }
         }
     }
 }
 
+// 修改 canAddSibling 函数的实现
+@MainActor
+private func canAddSibling(type: RelationType, viewModel: PersonManagementViewModel) -> Bool {
+    // 如果不是兄弟姐妹关系，直接返回 true
+    guard type == .brother || type == .sister else { return true }
+    
+    // 获取当前选中的人物
+    guard let currentPerson = viewModel.selectedPerson else { return false }
+    
+    // 检查是否有父亲或母亲
+    let hasFather = !viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .father).isEmpty
+    let hasMother = !viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .mother).isEmpty
+    
+    // 只要有一个父母就可以添加兄弟姐妹
+    return hasFather || hasMother
+}
+
+// 修改 EmptyStateView 中的相关部分
 private struct EmptyStateView: View {
     let title: String
     let onAddTap: () -> Void
@@ -336,11 +391,17 @@ private struct EmptyStateView: View {
     @ObservedObject var viewModel: PersonManagementViewModel
     @State private var processingParentId: UUID?
     
+    @State private var canAdd: Bool = true
+    
     var body: some View {
         Menu {
-            // 添加新人物按钮
-            Button(action: onAddTap) {
-                Label("添加新\(title)", systemImage: "person.badge.plus")
+            if canAdd {
+                Button(action: onAddTap) {
+                    Label("添加新\(title)", systemImage: "person.badge.plus")
+                }
+            } else {
+                Text("需要先添加父母才能添加\(title)")
+                    .foregroundColor(.secondary)
             }
             
             // 只在父母关系中显示选择现有人物选项
@@ -384,13 +445,26 @@ private struct EmptyStateView: View {
             }
         } label: {
             HStack {
-                Text("点击添加\(title)")
+                Text(canAdd ? "点击添加\(title)" : "需要先添加父母")
                     .font(.caption)
                     .foregroundStyle(Color.familyTheme.primary)
             }
             .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .disabled(processingParentId != nil)
+        .disabled(!canAdd)
+        .task {
+            canAdd = await canAddSibling(type: type, viewModel: viewModel)
+        }
+        .onChange(of: viewModel.persons) { _ in
+            Task {
+                canAdd = await canAddSibling(type: type, viewModel: viewModel)
+            }
+        }
+        .onChange(of: viewModel.selectedPerson) { _ in  // 添加这个监听
+            Task {
+                canAdd = await canAddSibling(type: type, viewModel: viewModel)
+            }
+        }
     }
 }
 
@@ -403,7 +477,13 @@ private struct PersonListView: View {
     let type: RelationType
     
     var body: some View {
-        ForEach(persons) { person in
+        // 对配偶类型进行特殊处理，确保唯一性
+        let uniquePersons = type == .spouse ? 
+            Array(Set(persons.map { $0.id }).compactMap { id in
+                persons.first { $0.id == id }
+            }) : persons
+        
+        ForEach(uniquePersons) { person in
             PersonItemView(
                 person: person,
                 viewModel: viewModel,
@@ -412,6 +492,7 @@ private struct PersonListView: View {
                 type: type,
                 onTap: { handlePersonTap(person) }
             )
+            .id("\(type.rawValue)_\(person.id)")
         }
     }
     
