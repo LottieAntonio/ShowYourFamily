@@ -151,14 +151,12 @@ class CollateralRelationHandler: BaseRelationHandler {
         var upCount = 0
         var downCount = 0
         var foundCommonAncestor = false
-        var lastParentType: RelationType?
         var commonAncestorId: UUID?
         
         for relation in path {
             if relation.type == .father || relation.type == .mother {
                 if !foundCommonAncestor {
                     upCount += 1
-                    lastParentType = relation.type
                     commonAncestorId = relation.toPerson
                 }
                 

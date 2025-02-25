@@ -93,7 +93,6 @@ class BasePersonHandler {
         }.compactMap { relationship in
             persons.first { $0.id == relationship.fromPerson }
         }
-        return []
 
     }
     

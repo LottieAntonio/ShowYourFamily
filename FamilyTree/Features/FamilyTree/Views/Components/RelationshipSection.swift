@@ -352,13 +352,13 @@ private struct HeaderView: View {
             .disabled(processingParentId != nil)
             .task {
                 if type == .brother || type == .sister {
-                    canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                    canAdd = canAddSibling(type: type, viewModel: viewModel)
                 }
             }
-            .onChange(of: viewModel.persons) { _ in
+            .onChange(of: viewModel.persons) { oldValue, newValue in
                 if type == .brother || type == .sister {
                     Task {
-                        canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                        canAdd = canAddSibling(type: type, viewModel: viewModel)
                     }
                 }
             }
@@ -453,16 +453,16 @@ private struct EmptyStateView: View {
         }
         .disabled(!canAdd)
         .task {
-            canAdd = await canAddSibling(type: type, viewModel: viewModel)
+            canAdd = canAddSibling(type: type, viewModel: viewModel)
         }
-        .onChange(of: viewModel.persons) { _ in
+        .onChange(of: viewModel.persons) { oldValue, newValue in
             Task {
-                canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                canAdd = canAddSibling(type: type, viewModel: viewModel)
             }
         }
-        .onChange(of: viewModel.selectedPerson) { _ in  // 添加这个监听
+        .onChange(of: viewModel.selectedPerson) { oldValue, newValue in  // 添加这个监听
             Task {
-                canAdd = await canAddSibling(type: type, viewModel: viewModel)
+                canAdd = canAddSibling(type: type, viewModel: viewModel)
             }
         }
     }

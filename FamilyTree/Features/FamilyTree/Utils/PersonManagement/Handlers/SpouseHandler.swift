@@ -26,7 +26,6 @@ class SpouseHandler: BasePersonHandler {
             let isAlreadyParent = isParentOf(parent: spouse, child: child)
             
             if !isAlreadyParent {
-                let parentType: RelationType = spouse.gender == .male ? .father : .mother
                 try? await addChildRelationship(parent: spouse, child: child)
             }
         }

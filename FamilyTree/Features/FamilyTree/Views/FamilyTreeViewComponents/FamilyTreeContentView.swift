@@ -44,7 +44,7 @@ struct FamilyTreeContentView: View {
         .task {
             await loadInitialData()
         }
-        .onChange(of: showingPersonCard) { isShowing in
+        .onChange(of: showingPersonCard) { oldValue, isShowing in
             if !isShowing {
                 // 当表单关闭时重新加载数据
                 Task {
@@ -59,7 +59,12 @@ struct FamilyTreeContentView: View {
         do {
             isLocalLoading = true
             try await viewModel.loadData()
-            try await personManager.loadData()
+            
+            // 如果没有选中的人物，但有家谱成员，则选择第一个人物
+            if personManager.selectedPerson == nil && !personManager.persons.isEmpty {
+                personManager.selectedPerson = personManager.persons.first
+            }
+            
             isLocalLoading = false
         } catch {
             print("数据加载错误：\(error.localizedDescription)")

@@ -1,21 +1,63 @@
 {
     "family": {
         "name": "示例家谱",
-        "description": "这是一个示例家谱，展示了基本功能",
+        "description": "这是一个示例家谱，展示了三代人的家庭关系",
         "isDefault": true
     },
     "persons": [
         {
-            "firstName": "大",
+            "firstName": "大山",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1954-01-01T00:00:00Z"
+            "birthDate": "1930-05-15T00:00:00Z"
         },
         {
-            "firstName": "兰",
+            "firstName": "秀兰",
             "lastName": "李",
             "gender": "female",
-            "birthDate": "1956-01-01T00:00:00Z"
+            "birthDate": "1932-08-23T00:00:00Z"
+        },
+        {
+            "firstName": "建国",
+            "lastName": "张",
+            "gender": "male",
+            "birthDate": "1955-10-01T00:00:00Z"
+        },
+        {
+            "firstName": "丽华",
+            "lastName": "王",
+            "gender": "female",
+            "birthDate": "1958-03-08T00:00:00Z"
+        },
+        {
+            "firstName": "建军",
+            "lastName": "张",
+            "gender": "male",
+            "birthDate": "1957-08-01T00:00:00Z"
+        },
+        {
+            "firstName": "玉珍",
+            "lastName": "陈",
+            "gender": "female",
+            "birthDate": "1960-12-25T00:00:00Z"
+        },
+        {
+            "firstName": "小明",
+            "lastName": "张",
+            "gender": "male",
+            "birthDate": "1982-09-15T00:00:00Z"
+        },
+        {
+            "firstName": "小红",
+            "lastName": "张",
+            "gender": "female",
+            "birthDate": "1985-04-20T00:00:00Z"
+        },
+        {
+            "firstName": "小军",
+            "lastName": "张",
+            "gender": "male",
+            "birthDate": "1984-06-18T00:00:00Z"
         }
     ],
     "relationships": [
@@ -23,6 +65,66 @@
             "type": "spouse",
             "fromPersonIndex": 0,
             "toPersonIndex": 1
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 2,
+            "toPersonIndex": 0
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 2,
+            "toPersonIndex": 1
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 4,
+            "toPersonIndex": 0
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 4,
+            "toPersonIndex": 1
+        },
+        {
+            "type": "spouse",
+            "fromPersonIndex": 2,
+            "toPersonIndex": 3
+        },
+        {
+            "type": "spouse",
+            "fromPersonIndex": 4,
+            "toPersonIndex": 5
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 6,
+            "toPersonIndex": 2
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 6,
+            "toPersonIndex": 3
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 7,
+            "toPersonIndex": 2
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 7,
+            "toPersonIndex": 3
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 8,
+            "toPersonIndex": 4
+        },
+        {
+            "type": "child",
+            "fromPersonIndex": 8,
+            "toPersonIndex": 5
         }
     ]
 }

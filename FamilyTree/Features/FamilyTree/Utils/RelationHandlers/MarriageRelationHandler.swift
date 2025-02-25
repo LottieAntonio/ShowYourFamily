@@ -72,7 +72,7 @@ class MarriageRelationHandler: BaseRelationHandler {
             
             // 2. 通过父母找到所有子女（即配偶的兄弟姐妹）
             for parentRelation in spouseParentRelations {
-                if let parentId = getOtherPerson(in: parentRelation, from: spouseId) {
+                if getOtherPerson(in: parentRelation, from: spouseId) != nil {
                     let siblingInfo = getSiblingInfo([parentRelation])
                     
                     // 检查父方兄弟姐妹

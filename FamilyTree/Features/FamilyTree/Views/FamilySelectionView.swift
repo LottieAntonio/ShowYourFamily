@@ -11,7 +11,7 @@ struct FamilySelectionView: View {
         let familyManagerVM = FamilyManagementViewModel(dataManager: dataManager)
         
         // 2. 创建 FamilyTreeViewModel 并自动设置双向引用
-        let familyTreeVM = FamilyTreeViewModel(familyManager: familyManagerVM)
+
         
         // 3. 初始化 StateObject
         _familyManager = StateObject(wrappedValue: familyManagerVM)
@@ -157,18 +157,15 @@ struct FamilySelectionView: View {
                     Text(error)
                 }
             }
-            // 添加新的导航链接
-            .background(
-                NavigationLink(
-                    destination: ContentView(familyManager: familyManager)
-                        .navigationBarBackButtonHidden()
-                        .interactiveDismissDisabled(),
-                    isActive: Binding(
-                        get: { selectedFamily != nil },
-                        set: { if !$0 { selectedFamily = nil } }
-                    )
-                ) { EmptyView() }
-            )
+            // 使用新的导航 API
+            .navigationDestination(isPresented: Binding(
+                get: { selectedFamily != nil },
+                set: { if !$0 { selectedFamily = nil } }
+            )) {
+                ContentView(familyManager: familyManager)
+                    .navigationBarBackButtonHidden()
+                    .interactiveDismissDisabled()
+            }
         }
     }
     

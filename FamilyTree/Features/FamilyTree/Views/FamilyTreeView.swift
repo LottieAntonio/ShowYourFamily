@@ -59,7 +59,7 @@ struct FamilyTreeView: View {
                     )
                 }
             }
-            .onChange(of: personManager.persons) { newPersons in
+            .onChange(of: personManager.persons) { oldValue, newPersons in
                 // 如果人物列表发生变化
                 if !newPersons.isEmpty {
                     // 如果是新添加的人物（通过比较数组长度和最后一个元素）
@@ -95,7 +95,7 @@ struct FamilyTreeView: View {
                 }
             }
         }
-        .onChange(of: personManager.selectedPerson) { newPerson in
+        .onChange(of: personManager.selectedPerson) { oldValue, newPerson in
             // 保存当前选中的人物 ID
             if let personId = newPerson?.id {
                 lastSelectedPersonId = personId.uuidString

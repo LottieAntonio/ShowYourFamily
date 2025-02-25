@@ -92,32 +92,11 @@ class BaseRelationHandler {
             let hasSibling = relatives.contains { relative in
                 relative.type == .brother || relative.type == .sister
             }
-            
             return hasSibling
-        
-            var currentId: UUID?
-            for (person, type) in relatives {
-                if currentId == nil {
-                    if type != .father && type != .mother {
-                        return false
-                    }
-                    currentId = person
-                    continue
-                }
-                
-                if person != currentId {
-                    return false
-                }
-                
-                if type == .brother || type == .sister {
-                    return true
-                }
-                
-                currentId = person
-            }
-            
-            return false
         }
+            
+        
+            
         
         if relationTypes.contains(.brother) || relationTypes.contains(.sister) {
             // 检查路径的连续性
@@ -178,7 +157,6 @@ class BaseRelationHandler {
     func validateSiblingRelation(source: UUID, target: UUID,
                                           fatherChildren: [UUID: Set<UUID>],
                                           motherChildren: [UUID: Set<UUID>]) -> Bool {
-           let people = Set([source, target])
            
         // 检查是否存在共同的父亲或母亲
            for (_, children) in fatherChildren {
@@ -299,7 +277,7 @@ class BaseRelationHandler {
         }
         
         for parentRelation in parentRelations {
-            guard let parent = personsMap[parentRelation.toPerson] else { continue }
+            guard personsMap[parentRelation.toPerson] != nil else { continue }
             
             relatives.append((parentRelation.toPerson, parentRelation.type))
             

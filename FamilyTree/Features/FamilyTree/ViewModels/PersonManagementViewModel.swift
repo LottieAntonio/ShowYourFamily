@@ -54,7 +54,7 @@ class PersonManagementViewModel: ObservableObject {
         // 设置数据观察者
         Task { @MainActor in
             // 初始化完成后再更新数据
-            await self.updateData()
+            self.updateData()
             self.setupDataObservers()
         }
     }

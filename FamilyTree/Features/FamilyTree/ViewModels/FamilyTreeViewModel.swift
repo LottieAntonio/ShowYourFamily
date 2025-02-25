@@ -100,8 +100,7 @@ class FamilyTreeViewModel: ObservableObject {
     }
     
     func refreshAfterFamilySwitch() async {
-        guard let familyManager = familyManager,
-              let currentFamily = familyManager.currentFamily else {
+        guard familyManager != nil else {
             print("⚠️ 刷新数据时未找到当前家谱")
             return
         }

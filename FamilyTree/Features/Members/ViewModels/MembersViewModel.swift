@@ -123,7 +123,7 @@ class MembersViewModel: ObservableObject {
     // 添加预加载称谓的方法
     private func preloadAllTitles() async {
         for person in persons where !person.isSelf {
-            if let title = await titleGenerator.generateTitle(for: person) {
+            if let title = titleGenerator.generateTitle(for: person) {
                 titleCache[person.id] = title
             }
         }
@@ -208,7 +208,7 @@ class MembersViewModel: ObservableObject {
         }
         
         // 如果没有缓存，生成称谓
-        if let title = await titleGenerator.generateTitle(for: person) {
+        if let title = titleGenerator.generateTitle(for: person) {
             // 缓存新生成的称谓
             await MainActor.run {
                 titleCache[person.id] = title

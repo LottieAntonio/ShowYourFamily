@@ -98,7 +98,7 @@ struct ContentView: View {
             Text("确定要返回主页吗？")
         }
         // 添加环境值监听
-        .onChange(of: coordinator.navigateToRoot) { newValue in
+        .onChange(of: coordinator.navigateToRoot) { oldValue, newValue in
             if newValue {
                 dismiss()
             }

@@ -67,18 +67,48 @@ struct ExampleData {
                 familyId: familyId,
                 firstName: rawPerson.firstName,
                 lastName: rawPerson.lastName,
-                gender: Person.Gender(rawValue: rawPerson.gender) ?? .other
+                gender: rawPerson.gender == "male" ? .male : (rawPerson.gender == "female" ? .female : .other),
+                isSelf: index == 6
             ).with(birthDate: rawPerson.birthDate)
             
             persons.append(person)
         }
         
-        let relationships = rawData.relationships.map { rawRelation in
-            Relationship(
-                type: RelationType(rawValue: rawRelation.type) ?? .spouse,
-                fromPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID(),
-                toPerson: personIndexToId[rawRelation.toPersonIndex] ?? UUID()
-            )
+        var relationships: [Relationship] = []
+        
+        for rawRelation in rawData.relationships {
+            if rawRelation.type == "child" {
+                // 父母指向子女的关系（原始关系）
+                let relationship = Relationship(
+                    type: .child,
+                    fromPerson: personIndexToId[rawRelation.toPersonIndex] ?? UUID(),
+                    toPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID()
+                )
+                relationships.append(relationship)
+                
+                // 子女指向父母的反向关系
+                let parentType: RelationType = persons[rawRelation.fromPersonIndex].gender == .male ? .father : .mother
+                let reverseRelationship = Relationship(
+                    type: parentType,
+                    fromPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID(),
+                    toPerson: personIndexToId[rawRelation.toPersonIndex] ?? UUID()
+                )
+                relationships.append(reverseRelationship)
+            } else if rawRelation.type == "spouse" {
+                // 配偶双向关系
+                let relationship1 = Relationship(
+                    type: .spouse,
+                    fromPerson: personIndexToId[rawRelation.toPersonIndex] ?? UUID(),
+                    toPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID()
+                )
+                let relationship2 = Relationship(
+                    type: .spouse,
+                    fromPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID(),
+                    toPerson: personIndexToId[rawRelation.toPersonIndex] ?? UUID()
+                )
+                relationships.append(relationship1)
+                relationships.append(relationship2)
+            }
         }
         
         return (family, persons, relationships)

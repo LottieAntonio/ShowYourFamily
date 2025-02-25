@@ -21,8 +21,7 @@ class PersonCardViewModel: ObservableObject {
     // 添加 targetPerson 属性
     // 修改 targetPerson 属性
     private var targetPerson: Person? {
-        if case .add(let relationType) = mode,
-           let relationType = relationType {
+        if case .add = mode {
             // 使用 managementViewModel 的 selectedPerson 作为目标人物
             return managementViewModel.selectedPerson
         }
@@ -54,7 +53,7 @@ class PersonCardViewModel: ObservableObject {
         
         // 触发异步更新
         Task { @MainActor in
-            if let title = await managementViewModel.titleGenerator.generateTitle(for: person) {
+            if let title = managementViewModel.titleGenerator.generateTitle(for: person) {
                 self.cachedTitle = title
                 self.objectWillChange.send()
             }
@@ -67,7 +66,7 @@ class PersonCardViewModel: ObservableObject {
     @MainActor
     func updateDisplayTitle() async {
         guard let person = currentPerson else { return }
-        if let title = await managementViewModel.titleGenerator.generateTitle(for: person) {
+        if let title = managementViewModel.titleGenerator.generateTitle(for: person) {
             cachedTitle = title
             objectWillChange.send()
         }
@@ -443,7 +442,7 @@ class PersonCardViewModel: ObservableObject {
     
     @MainActor
     func reloadData() async {
-        guard let familyManager = managementViewModel.familyTreeViewModel.familyManager else {
+        guard managementViewModel.familyTreeViewModel.familyManager != nil else {
             print("⚠️ FamilyTreeViewModel 未设置")
             return
         }
@@ -468,7 +467,7 @@ class PersonCardViewModel: ObservableObject {
     
     @MainActor
     func setSelf() async {
-        if let person = currentPerson {
+        if currentPerson != nil {
             // 使用已有的 setSelfPerson 方法
             try? await setSelfPerson()
             // 重新加载数据以更新称呼

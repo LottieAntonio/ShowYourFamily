@@ -141,35 +141,30 @@ class LocalDataManager: DataManaging {
         
         // 如果 families.json 不存在，返回空数组
         if !FileManager.default.fileExists(atPath: familiesUrl.path) {
-            // 只在第一次启动时创建示例家谱
-            if !UserDefaults.standard.bool(forKey: "hasInitializedFamilyTree") {
-                
-                // 清除所有数据和缓存
-                try? FileManager.delete(familiesFileName)
-                FileManager.clearCache()
-                
-                // 加载示例数据
-                let (family, persons, relationships) = ExampleData.loadExampleData()
-                
-                // 保存家谱
-                try FileManager.save([family], to: familiesFileName)
-                
-                // 保存所有数据
-                let updatedPersons = persons.map { person -> Person in
-                    var updatedPerson = person
-                    updatedPerson.familyId = family.id
-                    return updatedPerson
-                }
-                try FileManager.save(updatedPersons, to: getPersonsFileName(for: family.id))
-                try FileManager.save(relationships, to: getRelationshipsFileName(for: family.id))
-                
-                // 标记已初始化
-                UserDefaults.standard.set(true, forKey: "hasInitializedFamilyTree")
-                
-                return [family]
-            }
+            // 强制重新加载示例家谱
+            // 清除所有数据和缓存
+            try? FileManager.delete(familiesFileName)
+            FileManager.clearCache()
             
-            return []
+            // 加载示例数据
+            let (family, persons, relationships) = ExampleData.loadExampleData()
+            
+            // 保存家谱
+            try FileManager.save([family], to: familiesFileName)
+            
+            // 保存所有数据
+            let updatedPersons = persons.map { person -> Person in
+                var updatedPerson = person
+                updatedPerson.familyId = family.id
+                return updatedPerson
+            }
+            try FileManager.save(updatedPersons, to: getPersonsFileName(for: family.id))
+            try FileManager.save(relationships, to: getRelationshipsFileName(for: family.id))
+            
+            // 标记已初始化（这里可以移除，因为我们想要每次都重新加载）
+            // UserDefaults.standard.set(true, forKey: "hasInitializedFamilyTree")
+            
+            return [family]
         }
         
         // 正常加载逻辑
