@@ -5,10 +5,12 @@ struct MembersView: View {
     @EnvironmentObject private var personManager: PersonManagementViewModel
     @State private var showingPersonCard = false
     @State private var selectedMode: PersonCardMode = .view
-    let family: Family  // 添加当前家谱属性
+    let family: Family
+    private let familyTreeViewModel: FamilyTreeViewModel  // 添加这行
     
     init(familyTreeViewModel: FamilyTreeViewModel, family: Family) {
         self.family = family
+        self.familyTreeViewModel = familyTreeViewModel  // 添加这行
         let membersViewModel = MembersViewModel(familyTreeViewModel: familyTreeViewModel)
         _viewModel = StateObject(wrappedValue: membersViewModel)
     }
@@ -45,11 +47,12 @@ struct MembersView: View {
             }
         }
         .task {
-            print("开始加载[\(family.name)]成员数据")
-            // 确保先切换到正确的家谱
-            await viewModel.switchFamily(family)
+            // 避免重复加载，只在必要时切换家谱
+            if familyTreeViewModel.currentFamilyId != family.id {
+                print("切换到家谱：\(family.name)")
+                await viewModel.switchFamily(family)
+            }
             await viewModel.loadData()
-            print("[\(family.name)]成员数据加载完成：\(viewModel.persons.count) 个成员")
         }
     }
 }

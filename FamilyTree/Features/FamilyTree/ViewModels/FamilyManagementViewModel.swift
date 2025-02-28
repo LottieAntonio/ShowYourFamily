@@ -222,25 +222,30 @@ class FamilyManagementViewModel: ObservableObject {
     }
     
     // 修改 switchFamily 方法
+    // 修改 switchFamily 方法，确保数据同步
     func switchFamily(_ family: Family) async {
         do {
             // 1. 先更新当前家谱
             await MainActor.run {
                 self.currentFamily = family
+                print("🔄 开始切换家谱到：\(family.name)")
             }
             
-            // 2. 通知 FamilyTreeViewModel 刷新数据
+            // 2. 加载人物数据
+            let loadedPersons = try await dataManager.loadPersons(familyId: family.id)
+            await MainActor.run {
+                self.persons = loadedPersons
+            }
+            
+            // 3. 通知 FamilyTreeViewModel 刷新数据
             if let familyTreeViewModel = familyTreeViewModel {
+                // 直接调用刷新方法，让 FamilyTreeViewModel 内部处理家谱ID
                 await familyTreeViewModel.refreshAfterFamilySwitch()
             } else {
                 print("⚠️ FamilyTreeViewModel 未设置")
             }
             
-            // 3. 最后加载人物数据
-            let loadedPersons = try await dataManager.loadPersons(familyId: family.id)
-            await MainActor.run {
-                self.persons = loadedPersons
-            }
+            print("✅ 加载完成[\(family.name)]：\(loadedPersons.count) 个成员")
         } catch {
             setError(error.localizedDescription)
         }

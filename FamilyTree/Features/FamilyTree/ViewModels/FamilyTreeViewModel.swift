@@ -25,7 +25,12 @@ class FamilyTreeViewModel: ObservableObject {
     }
     
     // 添加当前家谱 ID 追踪
-    private var currentFamilyId: UUID?
+    @Published private(set) var currentFamilyId: UUID?
+        
+        func switchFamily(_ family: Family) async {
+            currentFamilyId = family.id
+            // ... 其他切换逻辑保持不变 ...
+        }
     
     convenience init(familyManager: FamilyManagementViewModel) {
         self.init(dataManager: familyManager.localDataManager)
@@ -49,7 +54,14 @@ class FamilyTreeViewModel: ObservableObject {
         }
     }
     
+    @Published private(set) var isInitialized = false  // 添加初始化状态标记
+    
     func loadData() async throws {
+        // 避免重复初始化
+        if isInitialized && !persons.isEmpty {
+            return
+        }
+        
         // 取消之前的任务
         loadDataTask?.cancel()
         
@@ -97,17 +109,41 @@ class FamilyTreeViewModel: ObservableObject {
         
         loadDataTask = task
         try await task.value
+        
+        isInitialized = true  // 标记为已初始化
     }
     
+    // 添加清除数据的方法
+    func clearAllData() {
+        print("🧹 FamilyTreeViewModel: 已清空所有数据")
+        persons = []
+        relationships = []
+        personsDict = [:]
+        relationshipsDict = [:]
+        // 不要清除 selectedPerson，避免UI闪烁
+    }
+    
+    // 修改 refreshAfterFamilySwitch 方法
     func refreshAfterFamilySwitch() async {
-        guard familyManager != nil else {
+        guard let familyManager = familyManager, 
+              let currentFamily = familyManager.currentFamily else {
             print("⚠️ 刷新数据时未找到当前家谱")
             return
         }
         
-        // 更新当前家谱 ID 并加载数据
+        print("🔄 家谱切换后刷新数据：\(currentFamily.name)")
+        
+        // 更新当前家谱 ID
+        currentFamilyId = currentFamily.id
+        
+        // 加载数据
         do {
+            // 清空现有数据
+            clearAllData()
+            
+            // 重新加载数据
             try await loadData()
+            print("✅ 家谱切换后数据刷新完成：\(persons.count) 个成员，\(relationships.count) 个关系")
         } catch {
             print("❌ 切换家谱后刷新数据失败：\(error)")
         }
@@ -157,6 +193,10 @@ class FamilyTreeViewModel: ObservableObject {
             print("保存关系失败：\(error)")
             throw error
         }
+    }
+    
+    func selectPerson(_ person: Person) {
+        selectedPerson = person
     }
     
     

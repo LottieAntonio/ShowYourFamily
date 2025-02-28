@@ -4,14 +4,16 @@ struct FamilySelectionView: View {
     @StateObject private var familyManager: FamilyManagementViewModel
     @State private var showingError = false
     @State private var selectedFamily: Family?
-    @State private var showingCreateOptions = false  // 添加状态变量
+    @State private var showingCreateOptions = false
+    @State private var showingProfileSheet = false  // 添加这行
     
     init(dataManager: LocalDataManager = LocalDataManager()) {
-        // 1. 先创建 FamilyManagementViewModel
+        // 1. 创建 FamilyManagementViewModel
         let familyManagerVM = FamilyManagementViewModel(dataManager: dataManager)
         
-        // 2. 创建 FamilyTreeViewModel 并自动设置双向引用
-
+        // 2. 创建 FamilyTreeViewModel
+        let familyTreeVM = FamilyTreeViewModel(familyManager: familyManagerVM)
+        familyManagerVM.setFamilyTreeViewModel(familyTreeVM)
         
         // 3. 初始化 StateObject
         _familyManager = StateObject(wrappedValue: familyManagerVM)
@@ -93,6 +95,30 @@ struct FamilySelectionView: View {
                 Spacer()
             }
             .padding()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingProfileSheet = true
+                    } label: {
+                        Image(systemName: "person.circle")
+                            .font(.title2)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingProfileSheet) {
+                NavigationStack {
+                    ProfileSettingsView()
+                        .navigationTitle("个人中心")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("完成") {
+                                    showingProfileSheet = false
+                                }
+                            }
+                        }
+                }
+            }
             .sheet(isPresented: $showingCreateOptions) {
                 CreateFamilyOptionsView(
                     isPresented: $showingCreateOptions,

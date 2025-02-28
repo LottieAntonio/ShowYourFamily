@@ -15,13 +15,10 @@ struct FamilyTreeView: View {
     @Namespace private var animation
     
     init(familyManager: FamilyManagementViewModel) {
-        // 1. 获取或创建 FamilyTreeViewModel
+        // 使用已存在的 FamilyTreeViewModel
         let familyViewModel = familyManager.familyTreeViewModel ?? FamilyTreeViewModel(familyManager: familyManager)
         
-        // 2. 初始化 StateObject
         _viewModel = StateObject(wrappedValue: familyViewModel)
-        
-        // 3. 创建 PersonManagementViewModel
         _personManager = StateObject(wrappedValue: PersonManagementViewModel(
             familyTreeViewModel: familyViewModel,
             familyManager: familyManager

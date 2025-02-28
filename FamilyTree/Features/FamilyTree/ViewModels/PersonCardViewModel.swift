@@ -105,7 +105,7 @@ class PersonCardViewModel: ObservableObject {
     
     // 将 private 改为 internal（默认访问级别）
     @MainActor
-    func save() async throws {
+        func save() async throws {
         guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,
               let currentFamily = familyManager.currentFamily else {
             throw FamilyError.noCurrentFamily
@@ -216,7 +216,7 @@ class PersonCardViewModel: ObservableObject {
             try await managementViewModel.updatePerson(createOrUpdatePerson())
         }
     }
-    
+
     private func createOrUpdatePerson() -> Person {
         // 获取当前家谱 ID
         guard let familyManager = managementViewModel.familyTreeViewModel.familyManager,

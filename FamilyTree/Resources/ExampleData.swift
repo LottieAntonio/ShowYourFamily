@@ -87,7 +87,10 @@ struct ExampleData {
                 relationships.append(relationship)
                 
                 // 子女指向父母的反向关系
-                let parentType: RelationType = persons[rawRelation.fromPersonIndex].gender == .male ? .father : .mother
+                // 根据父母（toPersonIndex）的性别来确定是父亲还是母亲
+                let parent = persons[rawRelation.toPersonIndex]
+                let parentType: RelationType = parent.gender == .male ? .father : .mother
+                
                 let reverseRelationship = Relationship(
                     type: parentType,
                     fromPerson: personIndexToId[rawRelation.fromPersonIndex] ?? UUID(),

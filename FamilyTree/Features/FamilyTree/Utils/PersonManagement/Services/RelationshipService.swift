@@ -102,6 +102,11 @@ class RelationshipService: ObservableObject {
         }
     }
     
+    // 添加获取所有关系的方法
+    func getAllRelationships() -> [Relationship] {
+        return relationships
+    }
+    
     func getRelatedPersons(for person: Person, relationType: RelationType) -> [Person] {
         switch relationType {
         case .father, .mother:

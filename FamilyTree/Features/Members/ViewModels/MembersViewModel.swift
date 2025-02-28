@@ -57,12 +57,20 @@ class MembersViewModel: ObservableObject {
     
     
     private func setupObservers() {
-        // 使用 removeDuplicates 避免重复更新
+        // 只在 FamilyTreeViewModel 初始化完成后才开始观察
+        familyTreeViewModel.$isInitialized
+            .filter { $0 }
+            .sink { [weak self] _ in
+                self?.startObserving()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func startObserving() {
         familyTreeViewModel.$persons
-            .removeDuplicates()  // 添加这行
+            .removeDuplicates()
             .sink { [weak self] persons in
                 self?.persons = persons
-                // 移到主线程执行，避免多次更新
                 Task { @MainActor [weak self] in
                     await self?.preloadAllTitles()
                 }
@@ -71,54 +79,17 @@ class MembersViewModel: ObservableObject {
     }
     
     func loadData() async {
-        do {
-            print("📱 MembersViewModel 开始加载数据")
-            
-            // 确保 familyManager 已设置
-            guard let familyManager = familyTreeViewModel.familyManager else {
-                print("⚠️ loadData 时 familyManager 为空")
-                throw FamilyError.noCurrentFamily
-            }
-            
-            // 先加载家谱列表
-            print("📝 开始加载家谱列表")
-            await familyManager.loadFamilies()
-            
-            // 如果没有选择当前家谱，尝试选择第一个可用的家谱
-            if familyManager.currentFamily == nil {
-                print("📝 尝试选择默认家谱")
-                if let firstFamily = familyManager.families.first {
-                    await familyManager.switchFamily(firstFamily)
-                    print("✅ 已选择家谱：\(firstFamily.name)")
-                } else {
-                    print("⚠️ 没有可用的家谱")
-                    throw FamilyError.noCurrentFamily
-                }
-            }
-            
-            guard let currentFamily = familyManager.currentFamily else {
-                print("⚠️ 未选择当前家谱")
-                throw FamilyError.noCurrentFamily
-            }
-            
-            print("📱 正在加载家谱[\(currentFamily.name)]的数据")
-            
-            // 先清空缓存
-            titleCache.removeAll()
-            
-            // 直接加载数据，移除多余的刷新调用
-            try await familyTreeViewModel.loadData()
-            print("✅ FamilyTreeViewModel 数据加载完成，persons: \(familyTreeViewModel.persons.count)")
-            
-            // 预加载称谓
+        // 如果 FamilyTreeViewModel 已经初始化且有数据，直接使用现有数据
+        if familyTreeViewModel.isInitialized && !familyTreeViewModel.persons.isEmpty {
+            self.persons = familyTreeViewModel.persons
             await preloadAllTitles()
-            
-            print("✅ MembersViewModel 数据加载完成")
-        } catch {
-            print("❌ MembersViewModel 加载数据失败：\(error)")
-            errorMessage = "加载数据失败：\(error.localizedDescription)"
+            return
         }
+        
+        // 否则等待数据加载
+        try? await familyTreeViewModel.loadData()
     }
+
     
     // 添加预加载称谓的方法
     private func preloadAllTitles() async {
