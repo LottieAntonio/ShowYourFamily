@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct FamilyTreeContentView: View {
-    @ObservedObject var viewModel: FamilyTreeViewModel
-    @ObservedObject var personManager: PersonManagementViewModel
+    // 修改为使用 appViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var selectedMode: PersonCardMode
     @Binding var isTransitioning: Bool
@@ -14,6 +14,15 @@ struct FamilyTreeContentView: View {
     
     @State private var isLocalLoading = true  // 添加本地加载状态
     
+    // 修改计算属性，从 appViewModel 获取数据
+    private var persons: [Person] {
+        appViewModel.getStateManager().state.persons
+    }
+    
+    private var selectedPerson: Person? {
+        appViewModel.getStateManager().state.selectedPerson
+    }
+    
     var body: some View {
         ZStack {
             Color.familyTheme.primary.opacity(0.2)
@@ -21,16 +30,15 @@ struct FamilyTreeContentView: View {
             
             if isLocalLoading {
                 ProgressView("加载中...")
-            } else if personManager.persons.isEmpty {
+            } else if persons.isEmpty {
                 FamilyTreeEmptyStateView(showAddPerson: {
                     Task { @MainActor in
                         showAddPerson()
                     }
                 })
-            } else if let currentPerson = personManager.selectedPerson {
+            } else if let currentPerson = selectedPerson {
                 FamilyTreeGridView(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     selectedMode: $selectedMode,
                     isTransitioning: $isTransitioning,
@@ -42,7 +50,9 @@ struct FamilyTreeContentView: View {
             }
         }
         .task {
+            // 使用 appViewModel 加载数据
             await loadInitialData()
+            isLocalLoading = false
         }
         .onChange(of: showingPersonCard) { oldValue, isShowing in
             if !isShowing {
@@ -54,15 +64,16 @@ struct FamilyTreeContentView: View {
         }
     }
     
-    // 添加数据加载方法
+    // 修改数据加载方法，使用 appViewModel
     private func loadInitialData() async {
         do {
             isLocalLoading = true
-            try await viewModel.loadData()
+            await appViewModel.refreshData()
             
             // 如果没有选中的人物，但有家谱成员，则选择第一个人物
-            if personManager.selectedPerson == nil && !personManager.persons.isEmpty {
-                personManager.selectedPerson = personManager.persons.first
+            if appViewModel.getStateManager().state.selectedPerson == nil && 
+               !appViewModel.getStateManager().state.persons.isEmpty {
+                appViewModel.getStateManager().selectPerson(appViewModel.getStateManager().state.persons.first!)
             }
             
             isLocalLoading = false

@@ -2,7 +2,8 @@ import SwiftUI
 
 struct FamilyTreeGridView: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+    // 修改为使用 appViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var selectedMode: PersonCardMode
     @Binding var isTransitioning: Bool
@@ -17,7 +18,6 @@ struct FamilyTreeGridView: View {
                 // 父母行
                 ParentsRow(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     isTransitioning: $isTransitioning,
                     selectedPersonId: $selectedPersonId,
@@ -25,11 +25,11 @@ struct FamilyTreeGridView: View {
                     animation: animation,
                     showAddRelation: showAddRelation
                 )
+                .environmentObject(appViewModel)  // 传递 appViewModel 给子视图
                 
                 // 配偶行
                 SpouseRow(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     isTransitioning: $isTransitioning,
                     selectedPersonId: $selectedPersonId,
@@ -37,21 +37,21 @@ struct FamilyTreeGridView: View {
                     animation: animation,
                     showAddRelation: showAddRelation
                 )
+                .environmentObject(appViewModel)  // 传递 appViewModel 给子视图
                 
                 // 当前人物行
                 CurrentPersonRow(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     selectedMode: $selectedMode,
                     isTransitioning: $isTransitioning,
                     animation: animation
                 )
+                .environmentObject(appViewModel)  // 传递 appViewModel 给子视图
                 
                 // 子女行
                 ChildrenRow(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     isTransitioning: $isTransitioning,
                     selectedPersonId: $selectedPersonId,
@@ -59,11 +59,11 @@ struct FamilyTreeGridView: View {
                     animation: animation,
                     showAddRelation: showAddRelation
                 )
+                .environmentObject(appViewModel)  // 传递 appViewModel 给子视图
                 
                 // 兄弟姐妹行
                 SiblingsRow(
                     currentPerson: currentPerson,
-                    personManager: personManager,
                     showingPersonCard: $showingPersonCard,
                     isTransitioning: $isTransitioning,
                     selectedPersonId: $selectedPersonId,
@@ -71,6 +71,7 @@ struct FamilyTreeGridView: View {
                     animation: animation,
                     showAddRelation: showAddRelation
                 )
+                .environmentObject(appViewModel)  // 传递 appViewModel 给子视图
             }
         }
         .padding()

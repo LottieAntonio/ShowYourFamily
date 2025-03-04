@@ -14,137 +14,118 @@ class FamilyGraphViewModel: ObservableObject {
     @Published private(set) var graphData: FamilyGraphData?
     @Published private(set) var selfPerson: Person?  // 添加这个属性
     
-    private let familyTreeViewModel: FamilyTreeViewModel
-    private let relationshipService: RelationshipService
+    private let stateManager: StateManager
     private var cancellables = Set<AnyCancellable>()
     
-    init(familyTreeViewModel: FamilyTreeViewModel) {
-        self.familyTreeViewModel = familyTreeViewModel
-        self.relationshipService = RelationshipService(
-            dataManager: familyTreeViewModel.dataManager,
-            relationships: familyTreeViewModel.relationships,
-            persons: familyTreeViewModel.persons
-        )
-        setupObservers()
+    // 保持初始化方法不变，由 FamilyAppViewModel 创建和管理实例
+    init(stateManager: StateManager) {
+        self.stateManager = stateManager
+        setupBindings()
     }
     
-    private func setupObservers() {
-        // 观察 FamilyTreeViewModel 的初始化状态
-        familyTreeViewModel.$isInitialized
-            .filter { $0 }
-            .sink { [weak self] _ in
-                print("📊 FamilyGraphViewModel: FamilyTreeViewModel 已初始化")
-                self?.startObserving()
-            }
-            .store(in: &cancellables)
-        
-        // 添加对关系数据的专门观察
-        familyTreeViewModel.$relationships
-            .dropFirst()
-            .sink { [weak self] relationships in
-                print("📊 FamilyGraphViewModel: 检测到关系数据变化，共 \(relationships.count) 个关系")
-            }
-            .store(in: &cancellables)
-        
-        // 添加对选中人物的专门观察
-        familyTreeViewModel.$selectedPerson
-            .dropFirst()
-            .compactMap { $0 }
-            .sink { [weak self] person in
-                print("📊 FamilyGraphViewModel: 检测到选中人物变化，\(person.name)")
-                self?.selectedPerson = person
-                self?.updateGraphData()
+    private func setupBindings() {
+        stateManager.$state
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)  // 添加防抖
+            .sink { [weak self] state in
+                guard let self = self else { return }
+                
+                // 只在必要时更新数据
+                let personsChanged = self.persons != state.persons
+                let relationshipsChanged = self.relationships != state.relationships
+                let selectedPersonChanged = self.selectedPerson?.id != state.selectedPerson?.id
+                
+                if personsChanged || relationshipsChanged || selectedPersonChanged {
+                    print("📊 FamilyGraphViewModel: 检测到重要数据变化")
+                    self.persons = state.persons
+                    self.relationships = state.relationships
+                    
+                    if selectedPersonChanged {
+                        if let selectedPerson = state.selectedPerson {
+                            print("📊 FamilyGraphViewModel: 选中人物变化，\(selectedPerson.name)")
+                            self.selectedPerson = selectedPerson
+                            self.updateGraphData()
+                        }
+                    } else if personsChanged || relationshipsChanged {
+                        // 只在数据真正变化时更新图谱
+                        self.updateGraphData()
+                    }
+                }
             }
             .store(in: &cancellables)
     }
     
-    private func startObserving() {
-        Publishers.CombineLatest3(
-            familyTreeViewModel.$persons.removeDuplicates(),
-            familyTreeViewModel.$relationships.removeDuplicates(),
-            familyTreeViewModel.$selectedPerson.removeDuplicates()
-        )
-        .filter { persons, _, _ in !persons.isEmpty }
-        .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
-        .sink { [weak self] persons, relationships, selectedPerson in
-            guard let self = self else { return }
-            self.updateData(persons: persons, relationships: relationships, selectedPerson: selectedPerson)
-        }
-        .store(in: &cancellables)
-    }
-    
-    private func updateData(persons: [Person], relationships: [Relationship], selectedPerson: Person?) {
-        print("📊 FamilyGraphViewModel 更新数据：\(persons.count) 个成员，\(relationships.count) 个关系")
-        self.persons = persons
-        self.relationships = relationships
-        self.selectedPerson = selectedPerson
-        
-        // 如果还没有设置"自己"，就用选中的人物或第一个人
-        if self.selfPerson == nil {
-            if let selected = selectedPerson {
-                self.selfPerson = selected
-            } else if let firstPerson = persons.first {
-                self.selfPerson = firstPerson
-            }
-        }
-        
-        self.relationshipService.updateData(
-            relationships: relationships,
-            persons: persons
-        )
-        
-        // 确保有选中的人物
-        if selectedPerson == nil, let firstPerson = persons.first {
-            print("📊 没有选中的人物，自动选择第一个人物：\(firstPerson.name)")
-            self.selectedPerson = firstPerson
-            familyTreeViewModel.selectPerson(firstPerson)
-        } else if let person = selectedPerson {
-            print("📊 更新图谱，中心人物：\(person.name)")
-            self.updateGraphData()
-        }
-    }
-    
+    // 修改 loadData 方法，使其更适合被 FamilyAppViewModel 调用
     func loadData() async {
         print("📊 FamilyGraphViewModel 开始加载数据")
         
-        // 等待 FamilyTreeViewModel 初始化完成
-        if !familyTreeViewModel.isInitialized || familyTreeViewModel.persons.isEmpty {
-            print("📊 等待 FamilyTreeViewModel 加载数据...")
-            try? await familyTreeViewModel.loadData()
-            
-            // 再次检查数据是否加载成功
-            if familyTreeViewModel.persons.isEmpty {
-                print("⚠️ FamilyTreeViewModel 数据加载失败")
-                return
+        // 如果状态中没有数据，不再自己加载，而是依赖 FamilyAppViewModel
+        if !stateManager.state.persons.isEmpty {
+            // 如果没有选中的人物，但有人物数据，选择第一个
+            if selectedPerson == nil, let firstPerson = stateManager.state.persons.first {
+                print("📊 自动选择第一个人物：\(firstPerson.name)")
+                stateManager.selectPerson(firstPerson)
             }
-        }
-        
-        // 更新数据
-        print("📊 更新图谱数据...")
-        let persons = familyTreeViewModel.persons
-        let relationships = familyTreeViewModel.relationships
-        let selectedPerson = familyTreeViewModel.selectedPerson
-        
-        // 如果没有选中的人物，自动选择第一个
-        if selectedPerson == nil, let firstPerson = persons.first {
-            print("📊 自动选择第一个人物：\(firstPerson.name)")
-            familyTreeViewModel.selectPerson(firstPerson)
-            updateData(persons: persons, relationships: relationships, selectedPerson: firstPerson)
-        } else {
-            updateData(persons: persons, relationships: relationships, selectedPerson: selectedPerson)
+            
+            // 确保图谱数据已更新
+            if let selectedPerson = selectedPerson, graphData == nil {
+                updateGraphData()
+            }
         }
     }
     
     private func updateGraphData() {
         guard let centerPerson = selectedPerson else {
+            print("⚠️ 没有选中的中心人物，无法更新图谱")
             graphData = nil
             return
         }
         
+        print("📊 开始为 \(centerPerson.name) (ID: \(centerPerson.id)) 创建图谱数据")
+        
+        // 打印所有关系，帮助调试
+        print("📊 所有关系:")
+        for rel in relationships {
+            let fromPerson = persons.first { $0.id == rel.fromPerson }?.name ?? "未知"
+            let toPerson = persons.first { $0.id == rel.toPerson }?.name ?? "未知"
+            print("   - \(fromPerson) -> \(toPerson): \(rel.type)")
+        }
+        
+        // 获取所有关系
+        let fathers = stateManager.getRelatedPersons(for: centerPerson, relationType: .father)
+        let mothers = stateManager.getRelatedPersons(for: centerPerson, relationType: .mother)
+        let parents = fathers + mothers
+        let children = stateManager.getRelatedPersons(for: centerPerson, relationType: .child)
+        let spouses = stateManager.getRelatedPersons(for: centerPerson, relationType: .spouse)
+        let brothers = stateManager.getRelatedPersons(for: centerPerson, relationType: .brother)
+        let sisters = stateManager.getRelatedPersons(for: centerPerson, relationType: .sister)
+        
+        // 打印详细的关系信息
+        print("📊 关系数据详情:")
+        if !fathers.isEmpty {
+            print("   - 父亲: \(fathers.map { $0.name }.joined(separator: ", "))")
+        }
+        if !mothers.isEmpty {
+            print("   - 母亲: \(mothers.map { $0.name }.joined(separator: ", "))")
+        }
+        if !children.isEmpty {
+            print("   - 子女: \(children.map { $0.name }.joined(separator: ", "))")
+        }
+        if !spouses.isEmpty {
+            print("   - 配偶: \(spouses.map { $0.name }.joined(separator: ", "))")
+        }
+        if !brothers.isEmpty {
+            print("   - 兄弟: \(brothers.map { $0.name }.joined(separator: ", "))")
+        }
+        if !sisters.isEmpty {
+            print("   - 姐妹: \(sisters.map { $0.name }.joined(separator: ", "))")
+        }
+        
+        print("📊 关系数据: 父母(\(parents.count)), 子女(\(children.count)), 配偶(\(spouses.count)), 兄弟(\(brothers.count)), 姐妹(\(sisters.count))")
+        
+        // 创建图谱数据
         graphData = createGraphData(for: centerPerson, level: 0, maxDepth: 3)
     }
     
-    // 添加这个方法
     private func createGraphData(for person: Person, level: Int, maxDepth: Int) -> FamilyGraphData {
         var processedPeople = Set<UUID>()
         return createGraphDataInternal(
@@ -173,11 +154,13 @@ class FamilyGraphViewModel: ObservableObject {
         }
         
         // 获取所有关系节点并去重
-        let parents = Array(Set(relationshipService.getRelatedPersons(for: person, relationType: .parent)))
-        let children = Array(Set(relationshipService.getRelatedPersons(for: person, relationType: .child)))
-        let spouses = Array(Set(relationshipService.getRelatedPersons(for: person, relationType: .spouse)))
-        let brothers = Array(Set(relationshipService.getRelatedPersons(for: person, relationType: .brother)))
-        let sisters = Array(Set(relationshipService.getRelatedPersons(for: person, relationType: .sister)))
+        let fathers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .father)))
+        let mothers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .mother)))
+        let parents = fathers + mothers
+        let children = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .child)))
+        let spouses = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .spouse)))
+        let brothers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .brother)))
+        let sisters = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .sister)))
         
         // 创建各类关系节点
         var parentNodes: [FamilyGraphData.RelationNode] = []
@@ -277,13 +260,11 @@ class FamilyGraphViewModel: ObservableObject {
         )
     }
     
-    
     // 添加设置"自己"的方法
     func setSelfPerson(_ person: Person) {
         self.selfPerson = person
     }
     
-    // 新增：获取图谱数据的方法
     // 获取完整的图谱数据，包括布局信息
     func getGraphData() -> GraphLayoutData? {
         guard let data = graphData else { return nil }
@@ -302,11 +283,15 @@ class FamilyGraphViewModel: ObservableObject {
         return graphData
     }
     
-    // 移除 drawnNodePositions 属性，因为不再需要缓存节点位置
-    // private var drawnNodePositions: [UUID: CGPoint] = [:]
+    // 添加一个公共方法，允许 FamilyAppViewModel 触发图谱数据更新
+    func refreshGraphData() {
+        if let selectedPerson = selectedPerson {
+            updateGraphData()
+        }
+    }
 }
 
-// 新增：用于 SpriteKit 的数据结构
+// 用于 SpriteKit 的数据结构保持不变
 struct GraphLayoutData {
     struct NodeData {
         let person: Person

@@ -14,10 +14,13 @@ struct RelationshipSection: View {
     let persons: [Person]
     let onAddTap: () -> Void
     let onPersonTap: (Person) -> Void
-    @ObservedObject var viewModel: PersonManagementViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel  // 修改这里
     let animation: Namespace.ID
     @Binding var selectedPersonId: UUID?
     let type: RelationType
+    
+    // 移除 viewModel 参数
+    // @ObservedObject var viewModel: PersonManagementViewModel
     
     // MARK: - Body
     
@@ -42,15 +45,14 @@ struct RelationshipSection: View {
                 title: title,
                 onAddTap: onAddTap,
                 type: type,
-                viewModel: viewModel, localPersons: persons
+                localPersons: persons
             )
             
-            if persons.isEmpty || viewModel.isProcessing {
+            if persons.isEmpty || appViewModel.getStateManager().state.isLoading {  // 修改这里
                 EmptyStateView(
                     title: title,
                     onAddTap: onAddTap,
-                    type: type,
-                    viewModel: viewModel
+                    type: type
                 )
             } else {
                 // 计算唯一人数
@@ -61,8 +63,7 @@ struct RelationshipSection: View {
                     HStack {
                         PersonListView(
                             persons: persons,
-                            viewModel: viewModel,
-                            animation: animation,
+                            animation: animation,  // 移除 stateManager 参数
                             selectedPersonId: $selectedPersonId,
                             onPersonTap: onPersonTap,
                             type: type
@@ -150,7 +151,7 @@ struct RelationshipBadge: View {
 // 在 PersonItemView 中添加 getRelationshipType 方法
 private struct PersonItemView: View {
     let person: Person
-    @ObservedObject var viewModel: PersonManagementViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel  // 修改为 @EnvironmentObject
     let animation: Namespace.ID
     let isSelected: Bool
     let type: RelationType
@@ -224,14 +225,14 @@ private struct PersonItemView: View {
         guard type == .brother || type == .sister else { return nil }
         
         // 获取当前选中人物
-        guard let currentPerson = viewModel.selectedPerson else { return nil }
+        guard let currentPerson = appViewModel.getStateManager().state.selectedPerson else { return nil }
         
         // 获取双方的父母
-        let currentFather = viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .father).first
-        let currentMother = viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .mother).first
+        let currentFather = appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .father).first
+        let currentMother = appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .mother).first
         
-        let personFather = viewModel.relationshipService.getRelatedPersons(for: person, relationType: .father).first
-        let personMother = viewModel.relationshipService.getRelatedPersons(for: person, relationType: .mother).first
+        let personFather = appViewModel.getStateManager().getRelatedPersons(for: person, relationType: .father).first
+        let personMother = appViewModel.getStateManager().getRelatedPersons(for: person, relationType: .mother).first
         
         // 判断关系类型
         let hasSameFather = currentFather?.id == personFather?.id && currentFather != nil
@@ -257,7 +258,7 @@ private struct HeaderView: View {
     let title: String
     let onAddTap: () -> Void
     let type: RelationType
-    @ObservedObject var viewModel: PersonManagementViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel  // 修改为 @EnvironmentObject
     @State private var showingPotentialParents = false
     @State private var processingParentId: UUID?
     let localPersons: [Person]
@@ -273,111 +274,161 @@ private struct HeaderView: View {
     }
     
     var body: some View {
+        // 将复杂的 HStack 拆分成更小的部分
         HStack {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(Color.familyTheme.primary)
-                    
-                    // 使用去重后的数量
-                    if uniquePersonCount > 1 {
-                        Text("(\(uniquePersonCount))")
-                            .font(.caption)
-                            .foregroundStyle(Color.familyTheme.primary.opacity(0.6))
-                    }
-            }
+            // 标题部分
+            titleView
+            
             Spacer()
-            Menu {
-                if type == .brother || type == .sister {
-                    if canAdd {
-                        Button(action: onAddTap) {
-                            Label("添加新\(title)", systemImage: "person.badge.plus")
-                        }
-                    } else {
-                        Text("需要先添加父母才能添加\(title)")
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    // 非兄弟姐妹关系，直接显示添加按钮
-                    Button(action: onAddTap) {
-                        Label("添加新\(title)", systemImage: "person.badge.plus")
-                    }
-                }
-                
-                // 只在父母关系中显示选择现有人物选项
-                if (type == .father || type == .mother),
-                   let currentPerson = viewModel.selectedPerson {
-                    let potentialParents = viewModel.relationshipService.getPotentialParents(
-                        for: currentPerson,
-                        type: type
-                    )
-                    
-                    if !potentialParents.isEmpty {
-                        Divider()
-                        ForEach(potentialParents) { parent in
-                            Button(action: {
-                                processingParentId = parent.id
-                                viewModel.isProcessing = true  // 设置处理状态
-                                
-                                // 后台处理数据更新
-                                Task {
-                                    do {
-                                        try await viewModel.relationshipService.addRelationship(
-                                            from: currentPerson,
-                                            to: parent,
-                                            type: type
-                                        )
-                                    } catch {
-                                        print("添加关系失败：\(error.localizedDescription)")
-                                    }
-                                    processingParentId = nil
-                                    viewModel.isProcessing = false  // 重置处理状态
-                                }
-                            }) {
-                                Label("选择 \(parent.name)", systemImage: "person.fill")
-                                if processingParentId == parent.id {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                }
-                            }
-                            .disabled(processingParentId != nil)
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle.fill")
-                    .foregroundStyle(Color.familyTheme.primary)
-                    .font(.callout)
+            
+            // 菜单部分
+            menuButton
+        }
+    }
+        
+        // 标题视图
+    private var titleView: some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Color.familyTheme.primary)
+            
+            // 使用去重后的数量
+            if uniquePersonCount > 1 {
+                Text("(\(uniquePersonCount))")
+                    .font(.caption)
+                    .foregroundStyle(Color.familyTheme.primary.opacity(0.6))
             }
-            .disabled(processingParentId != nil)
-            .task {
-                if type == .brother || type == .sister {
-                    canAdd = canAddSibling(type: type, viewModel: viewModel)
-                }
+        }
+    }
+        
+        // 菜单按钮
+    private var menuButton: some View {
+        Menu {
+            // 兄弟姐妹关系的菜单项
+            siblingMenuItems
+            
+            // 父母关系的菜单项
+            parentMenuItems
+        } label: {
+            Image(systemName: "ellipsis.circle.fill")
+                .foregroundStyle(Color.familyTheme.primary)
+                .font(.callout)
+        }
+        .disabled(processingParentId != nil)
+        .task {
+            if type == .brother || type == .sister {
+                canAdd = await canAddSibling(type: type, stateManager: appViewModel.getStateManager())
             }
-            .onChange(of: viewModel.persons) { oldValue, newValue in
-                if type == .brother || type == .sister {
-                    Task {
-                        canAdd = canAddSibling(type: type, viewModel: viewModel)
-                    }
+        }
+        .onChange(of: appViewModel.getStateManager().state.persons) { oldValue, newValue in
+            if type == .brother || type == .sister {
+                Task {
+                    canAdd = await canAddSibling(type: type, stateManager: appViewModel.getStateManager())
                 }
             }
         }
+    }
+        
+    // 兄弟姐妹关系的菜单项
+    @ViewBuilder
+    private var siblingMenuItems: some View {
+        if type == .brother || type == .sister {
+            if canAdd {
+                Button(action: onAddTap) {
+                    Label("添加新\(title)", systemImage: "person.badge.plus")
+                }
+            } else {
+                Text("需要先添加父母才能添加\(title)")
+                    .foregroundColor(.secondary)
+            }
+        } else {
+            // 非兄弟姐妹关系，直接显示添加按钮
+            Button(action: onAddTap) {
+                Label("添加新\(title)", systemImage: "person.badge.plus")
+            }
+        }
+    }
+        
+    // 父母关系的菜单项
+    @ViewBuilder
+    private var parentMenuItems: some View {
+        // 只在父母关系中显示选择现有人物选项
+        if (type == .father || type == .mother),
+           let currentPerson = appViewModel.getStateManager().state.selectedPerson {
+            let potentialParents = getPotentialParents(
+                for: currentPerson,
+                type: type
+            )
+            
+            if !potentialParents.isEmpty {
+                Divider()
+                ForEach(potentialParents) { parent in
+                    parentButton(for: parent)
+                }
+            }
+        }
+    }
+        
+        // 父母按钮
+    private func parentButton(for parent: Person) -> some View {
+        Button(action: {
+            processingParentId = parent.id
+            Task {
+                await MainActor.run {
+                    appViewModel.getStateManager().updateLoadingState(true)
+                }
+                
+                do {
+                    try await appViewModel.getStateManager().addRelationship(
+                        from: appViewModel.getStateManager().state.selectedPerson!,
+                        to: parent,
+                        type: type
+                    )
+                    await appViewModel.refreshData()  // 添加刷新
+                } catch {
+                    print("添加关系失败：\(error.localizedDescription)")
+                }
+                processingParentId = nil
+                
+                await MainActor.run {
+                    appViewModel.getStateManager().updateLoadingState(false)
+                }
+            }
+        }) {
+            Label("选择 \(parent.name)", systemImage: "person.fill")
+            if processingParentId == parent.id {
+                ProgressView()
+                    .scaleEffect(0.7)
+            }
+        }
+        .disabled(processingParentId != nil)
+    }
+    
+    // 添加获取潜在父母的方法
+    private func getPotentialParents(for person: Person, type: RelationType) -> [Person] {
+        let otherParentType: RelationType = type == .father ? .mother : .father
+        guard let otherParent = appViewModel.getStateManager().getRelatedPersons(for: person, relationType: otherParentType).first else {
+            return []
+        }
+        
+        return appViewModel.getStateManager().getRelatedPersons(for: otherParent, relationType: .spouse)
+            .filter { $0.gender == (type == .father ? .male : .female) }
     }
 }
 
 // 修改 canAddSibling 函数的实现
 @MainActor
-private func canAddSibling(type: RelationType, viewModel: PersonManagementViewModel) -> Bool {
+private func canAddSibling(type: RelationType, stateManager: StateManager) async -> Bool {
     // 如果不是兄弟姐妹关系，直接返回 true
     guard type == .brother || type == .sister else { return true }
     
     // 获取当前选中的人物
-    guard let currentPerson = viewModel.selectedPerson else { return false }
+    guard let currentPerson = stateManager.state.selectedPerson else { return false }
     
     // 检查是否有父亲或母亲
-    let hasFather = !viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .father).isEmpty
-    let hasMother = !viewModel.relationshipService.getRelatedPersons(for: currentPerson, relationType: .mother).isEmpty
+    let hasFather = !stateManager.getRelatedPersons(for: currentPerson, relationType: .father).isEmpty
+    let hasMother = !stateManager.getRelatedPersons(for: currentPerson, relationType: .mother).isEmpty
     
     // 只要有一个父母就可以添加兄弟姐妹
     return hasFather || hasMother
@@ -388,89 +439,130 @@ private struct EmptyStateView: View {
     let title: String
     let onAddTap: () -> Void
     let type: RelationType
-    @ObservedObject var viewModel: PersonManagementViewModel
+    // 移除这一行，不再需要直接传入 stateManager
+    // @ObservedObject var stateManager: StateManager
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @State private var processingParentId: UUID?
     
     @State private var canAdd: Bool = true
     
     var body: some View {
         Menu {
-            if canAdd {
-                Button(action: onAddTap) {
-                    Label("添加新\(title)", systemImage: "person.badge.plus")
-                }
-            } else {
-                Text("需要先添加父母才能添加\(title)")
-                    .foregroundColor(.secondary)
-            }
+            // 添加按钮部分
+            addButtonSection
             
-            // 只在父母关系中显示选择现有人物选项
-            if (type == .father || type == .mother),
-               let currentPerson = viewModel.selectedPerson {
-                let potentialParents = viewModel.relationshipService.getPotentialParents(
-                    for: currentPerson,
-                    type: type
-                )
-                
-                if !potentialParents.isEmpty {
-                    Divider()
-                    ForEach(potentialParents) { parent in
-                        Button(action: {
-                            processingParentId = parent.id
-                            viewModel.isProcessing = true
-                            
-                            Task {
-                                do {
-                                    try await viewModel.relationshipService.addRelationship(
-                                        from: currentPerson,
-                                        to: parent,
-                                        type: type
-                                    )
-                                } catch {
-                                    print("添加关系失败：\(error.localizedDescription)")
-                                }
-                                processingParentId = nil
-                                viewModel.isProcessing = false
-                            }
-                        }) {
-                            Label("选择 \(parent.name)", systemImage: "person.fill")
-                            if processingParentId == parent.id {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                            }
-                        }
-                        .disabled(processingParentId != nil)
-                    }
-                }
-            }
+            // 父母选择部分
+            parentSelectionSection
         } label: {
-            HStack {
-                Text(canAdd ? "点击添加\(title)" : "需要先添加父母")
-                    .font(.caption)
-                    .foregroundStyle(Color.familyTheme.primary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
+            emptyStateLabel
         }
         .disabled(!canAdd)
         .task {
-            canAdd = canAddSibling(type: type, viewModel: viewModel)
+            // 使用 appViewModel.getStateManager() 替代 stateManager
+            canAdd = await canAddSibling(type: type, stateManager: appViewModel.getStateManager())
         }
-        .onChange(of: viewModel.persons) { oldValue, newValue in
+        .onChange(of: appViewModel.getStateManager().state.persons) { oldValue, newValue in
             Task {
-                canAdd = canAddSibling(type: type, viewModel: viewModel)
+                canAdd = await canAddSibling(type: type, stateManager: appViewModel.getStateManager())
             }
         }
-        .onChange(of: viewModel.selectedPerson) { oldValue, newValue in  // 添加这个监听
+        .onChange(of: appViewModel.getStateManager().state.selectedPerson) { oldValue, newValue in
             Task {
-                canAdd = canAddSibling(type: type, viewModel: viewModel)
+                canAdd = await canAddSibling(type: type, stateManager: appViewModel.getStateManager())
             }
         }
+    }
+        
+        // 空状态标签
+    private var emptyStateLabel: some View {
+        HStack {
+            Text(canAdd ? "点击添加\(title)" : "需要先添加父母")
+                .font(.caption)
+                .foregroundStyle(Color.familyTheme.primary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+        
+    // 添加按钮部分
+    @ViewBuilder
+    private var addButtonSection: some View {
+        if canAdd {
+            Button(action: onAddTap) {
+                Label("添加新\(title)", systemImage: "person.badge.plus")
+            }
+        } else {
+            Text("需要先添加父母才能添加\(title)")
+                .foregroundColor(.secondary)
+        }
+    }
+        
+    // 父母选择部分
+    @ViewBuilder
+    private var parentSelectionSection: some View {
+        // 只在父母关系中显示选择现有人物选项
+        if (type == .father || type == .mother),
+           let currentPerson = appViewModel.getStateManager().state.selectedPerson {
+            let potentialParents = getPotentialParents(
+                for: currentPerson,
+                type: type
+            )
+            
+            if !potentialParents.isEmpty {
+                Divider()
+                ForEach(potentialParents) { parent in
+                    parentButton(for: parent, currentPerson: currentPerson)
+                }
+            }
+        }
+    }
+        
+    // 父母按钮
+    private func parentButton(for parent: Person, currentPerson: Person) -> some View {
+        Button(action: {
+            processingParentId = parent.id
+            // 使用 appViewModel 而不是直接访问 stateManager
+            appViewModel.getStateManager().updateLoadingState(true)
+            
+            Task {
+                do {
+                    try await appViewModel.getStateManager().addRelationship(
+                        from: currentPerson,
+                        to: parent,
+                        type: type
+                    )
+                    await appViewModel.refreshData()  // 添加刷新
+                } catch {
+                    print("添加关系失败：\(error.localizedDescription)")
+                }
+                processingParentId = nil
+                // 使用 appViewModel 而不是直接访问 stateManager
+                appViewModel.getStateManager().updateLoadingState(false)
+            }
+        }) {
+            Label("选择 \(parent.name)", systemImage: "person.fill")
+            if processingParentId == parent.id {
+                ProgressView()
+                    .scaleEffect(0.7)
+            }
+        }
+        .disabled(processingParentId != nil)
+    }
+    
+    // 添加获取潜在父母的方法
+    private func getPotentialParents(for person: Person, type: RelationType) -> [Person] {
+        let otherParentType: RelationType = type == .father ? .mother : .father
+        guard let otherParent = appViewModel.getStateManager().getRelatedPersons(for: person, relationType: otherParentType).first else {
+            return []
+        }
+        
+        return appViewModel.getStateManager().getRelatedPersons(for: otherParent, relationType: .spouse)
+            .filter { $0.gender == (type == .father ? .male : .female) }
     }
 }
 
 private struct PersonListView: View {
     let persons: [Person]
-    @ObservedObject var viewModel: PersonManagementViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel  // 修改这里
     let animation: Namespace.ID
     @Binding var selectedPersonId: UUID?
     let onPersonTap: (Person) -> Void
@@ -486,8 +578,7 @@ private struct PersonListView: View {
         ForEach(uniquePersons) { person in
             PersonItemView(
                 person: person,
-                viewModel: viewModel,
-                animation: animation,
+                animation: animation,  // 移除 stateManager 参数
                 isSelected: selectedPersonId == person.id,
                 type: type,
                 onTap: { handlePersonTap(person) }

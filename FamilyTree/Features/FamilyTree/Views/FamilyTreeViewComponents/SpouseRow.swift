@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SpouseRow: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+// 修改参数，使用 stateManager
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var isTransitioning: Bool
     @Binding var selectedPersonId: UUID?
@@ -14,7 +15,8 @@ struct SpouseRow: View {
         GridRow {
             RelationshipSection(
                 title: "配偶",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .spouse),
+                
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .spouse),
                 onAddTap: {
                     Task {
                         let defaultSpouseGender = currentPerson.gender == .male ? Person.Gender.female : .male
@@ -29,7 +31,6 @@ struct SpouseRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .spouse
@@ -64,7 +65,6 @@ struct SpouseRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.flyTransition) {
                 transitionOffset = .zero
-                personManager.selectedPerson = person
                 showingPersonCard = false
                 isTransitioning = false
             }

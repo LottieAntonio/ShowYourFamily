@@ -2,18 +2,20 @@ import SwiftUI
 
 @main
 struct FamilyTreeApp: App {
-    let dataManager = LocalDataManager()
+    // 创建 dataManager
+    private let dataManager = LocalDataManager()
+    
+    // 创建 FamilyAppViewModel 而不是 StateManager
+    @StateObject private var appViewModel = FamilyAppViewModel()
     
     var body: some Scene {
         WindowGroup {
-            FamilySelectionView(dataManager: dataManager)
+            FamilySelectionView()
                 .task {
-                    do {
-                        _ = try await dataManager.loadFamilies()
-                    } catch {
-                        // 错误处理
-                    }
+                    // 使用 appViewModel 加载初始数据
+                    await appViewModel.loadInitialData()
                 }
+                .environmentObject(appViewModel)
         }
     }
 }

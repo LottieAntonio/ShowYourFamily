@@ -252,5 +252,71 @@ class LocalDataManager: DataManaging {
         return allRelationships
     }
     
-
+    // 添加一个方法来删除整个家谱及其相关数据
+    func deleteFamily(_ familyId: UUID) async throws {
+        // 1. 删除家谱记录
+        var families = try await loadFamilies()
+        guard families.contains(where: { $0.id == familyId }) else {
+            throw DataError.familyNotFound
+        }
+        
+        families.removeAll { $0.id == familyId }
+        try FileManager.save(families, to: familiesFileName)
+        
+        // 2. 删除相关的人物和关系文件
+        try? FileManager.delete(getPersonsFileName(for: familyId))
+        try? FileManager.delete(getRelationshipsFileName(for: familyId))
+    }
+    
+    // 添加一个方法来复制家谱
+    func copyFamily(_ sourceId: UUID, withName name: String, description: String?) async throws -> Family {
+        // 1. 加载源家谱数据
+        let families = try await loadFamilies()
+        guard families.contains(where: { $0.id == sourceId }) else {
+            throw DataError.familyNotFound
+        }
+        
+        // 2. 创建新家谱
+        let newFamily = Family(
+            id: UUID(),
+            name: name,
+            description: description,
+            isDefault: false
+        )
+        
+        // 3. 复制人物数据 - 修改这部分代码
+        let persons = try await loadPersons(familyId: sourceId)
+        let newPersons = persons.map { person -> Person in
+            // 创建新的Person对象，而不是修改现有对象
+            return Person(
+                id: UUID(),  // 直接使用新ID
+                familyId: newFamily.id,
+                firstName: person.firstName,
+                lastName: person.lastName,
+                gender: person.gender
+            )
+        }
+        
+        // 4. 复制关系数据，更新ID引用
+        let relationships = try await loadRelationships(familyId: sourceId)
+        let personIdMap = Dictionary(uniqueKeysWithValues: 
+            zip(persons.map { $0.id }, newPersons.map { $0.id }))
+        
+        let newRelationships = relationships.map { relationship -> Relationship in
+            Relationship(
+                id: UUID(),
+                type: relationship.type,
+                fromPerson: personIdMap[relationship.fromPerson] ?? relationship.fromPerson,
+                toPerson: personIdMap[relationship.toPerson] ?? relationship.toPerson
+            )
+        }
+        
+        // 5. 保存新数据
+        try await saveFamily(newFamily)
+        try FileManager.save(newPersons, to: getPersonsFileName(for: newFamily.id))
+        try FileManager.save(newRelationships, to: getRelationshipsFileName(for: newFamily.id))
+        
+        return newFamily
+    }
+    
 }

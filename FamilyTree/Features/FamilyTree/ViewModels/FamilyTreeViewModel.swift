@@ -1,76 +1,110 @@
 import Foundation
 import SwiftUI
+import Combine
+
 
 @MainActor
 class FamilyTreeViewModel: ObservableObject {
     @Published private(set) var persons: [Person] = []
     @Published private(set) var relationships: [Relationship] = []
-    @Published var isLoading = false
     @Published var selectedPerson: Person?
-    weak var familyManager: FamilyManagementViewModel?  // 保持 weak 引用
+    @Published var errorMessage: String?
+    @Published var isLoading = false
     
+    // 添加计算属性获取当前家谱
+    var currentFamily: Family? {
+        return stateManager.state.currentFamily
+    }
+    
+    private var stateManager: StateManager  // 改为 var
+    private weak var appViewModel: FamilyAppViewModel?
+    private var cancellables = Set<AnyCancellable>()
+    
+    private var isInitialized = false
+    private var loadDataTask: Task<Void, Error>?
+    private var currentFamilyId: UUID?
     private var personsDict: [UUID: Person] = [:]
     private var relationshipsDict: [UUID: Relationship] = [:]
-    let dataManager: DataManaging
     
-    init(dataManager: DataManaging) {
-        self.dataManager = dataManager
+    init(stateManager: StateManager, appViewModel: FamilyAppViewModel? = nil) {
+        self.stateManager = stateManager
+        self.appViewModel = appViewModel
+        setupBindings()
     }
     
-    // 添加任务取消支持
-    private var loadDataTask: Task<Void, Error>?
-    
-    deinit {
-        loadDataTask?.cancel()
+    private func setupBindings() {
+        stateManager.$state
+            .sink { [weak self] state in
+                guard let self = self else { return }
+                
+                // 更新本地数据
+                self.persons = state.persons
+                self.relationships = state.relationships
+                
+                // 同步选中的人物
+                if let selectedPersonId = state.selectedPerson?.id {
+                    if self.selectedPerson?.id != selectedPersonId {
+                        self.selectedPerson = state.selectedPerson
+                    }
+                } else if let firstPerson = state.persons.first, self.selectedPerson == nil {
+                    // 如果没有选中人物但有可用人物，选择第一个
+                    self.selectedPerson = firstPerson
+                    self.stateManager.selectPerson(firstPerson)
+                }
+            }
+            .store(in: &cancellables)
     }
     
-    // 添加当前家谱 ID 追踪
-    @Published private(set) var currentFamilyId: UUID?
-        
-        func switchFamily(_ family: Family) async {
-            currentFamilyId = family.id
-            // ... 其他切换逻辑保持不变 ...
-        }
     
-    convenience init(familyManager: FamilyManagementViewModel) {
-        self.init(dataManager: familyManager.localDataManager)
-        self.familyManager = familyManager
-        familyManager.setFamilyTreeViewModel(self)  // 添加这行，确保双向引用
-        
-        // 取消之前的加载任务
-        loadDataTask?.cancel()
-        
-        // 创建新的加载任务
-        loadDataTask = Task { @MainActor in
-            if familyManager.currentFamily == nil,
-               let firstFamily = familyManager.families.first {
-                await familyManager.switchFamily(firstFamily)
-            }
-            
-            if let currentFamily = familyManager.currentFamily {
-                self.currentFamilyId = currentFamily.id
-                try? await self.loadData()
-            }
+    // 修改选择人物方法，添加通知
+    func selectPerson(_ person: Person) {
+        selectedPerson = person
+        stateManager.selectPerson(person)
+        // 通知 appViewModel 更新
+        Task {
+            await appViewModel?.refreshData()
         }
     }
     
-    @Published private(set) var isInitialized = false  // 添加初始化状态标记
+    // 修改添加人物方法
+    func addPerson(_ person: Person) async throws {
+        try await stateManager.addPerson(person)
+        await appViewModel?.refreshData()
+    }
     
+    // 修改更新人物方法
+    func updatePerson(_ person: Person) async throws {
+        try await stateManager.updatePerson(person)
+        await appViewModel?.refreshData()
+    }
+    
+    // 修改删除人物方法
+    func deletePerson(_ person: Person) async throws {
+        try await stateManager.deletePerson(person)
+        await appViewModel?.refreshData()
+    }
+    
+    // 修改添加关系方法
+    func addRelationship(_ relationship: Relationship) async throws {
+        try await stateManager.addRelationship(relationship)
+        await appViewModel?.refreshData()
+    }
+    
+    // 修改切换家谱方法
+    func switchFamily(_ family: Family) async {
+        await stateManager.selectFamily(family)
+        await appViewModel?.refreshData()
+    }
+    
+    // 修改加载数据方法
     func loadData() async throws {
-        // 避免重复初始化
         if isInitialized && !persons.isEmpty {
             return
         }
         
-        // 取消之前的任务
         loadDataTask?.cancel()
         
-        guard let familyManager = familyManager else {
-            print("⚠️ FamilyTreeViewModel 未设置 familyManager")
-            throw FamilyError.noCurrentFamily
-        }
-        
-        guard let currentFamily = familyManager.currentFamily else {
+        guard let currentFamily = stateManager.state.currentFamily else {
             print("⚠️ 未选择当前家谱")
             throw FamilyError.noCurrentFamily
         }
@@ -79,10 +113,8 @@ class FamilyTreeViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        // 创建新的加载任务
         let task = Task { @MainActor in
             do {
-                // 更新当前家谱 ID
                 self.currentFamilyId = currentFamily.id
                 
                 // 清空现有数据
@@ -91,13 +123,14 @@ class FamilyTreeViewModel: ObservableObject {
                 self.personsDict = [:]
                 self.relationshipsDict = [:]
                 
-                let persons = try await dataManager.loadPersons(familyId: currentFamily.id)
-                let relationships = try await dataManager.loadRelationships(familyId: currentFamily.id)
+                // 使用 appViewModel 加载数据
+                await appViewModel?.refreshData()
                 
                 if Task.isCancelled { return }
                 
-                self.persons = persons
-                self.relationships = relationships
+                // 从 stateManager 获取最新数据
+                self.persons = stateManager.state.persons
+                self.relationships = stateManager.state.relationships
                 self.personsDict = Dictionary(uniqueKeysWithValues: persons.map { ($0.id, $0) })
                 self.relationshipsDict = Dictionary(uniqueKeysWithValues: relationships.map { ($0.id, $0) })
                 print("✅ 加载完成[\(currentFamily.name)]：\(persons.count) 个成员，\(relationships.count) 个关系")
@@ -110,94 +143,23 @@ class FamilyTreeViewModel: ObservableObject {
         loadDataTask = task
         try await task.value
         
-        isInitialized = true  // 标记为已初始化
+        isInitialized = true
     }
     
-    // 添加清除数据的方法
-    func clearAllData() {
-        print("🧹 FamilyTreeViewModel: 已清空所有数据")
-        persons = []
-        relationships = []
-        personsDict = [:]
-        relationshipsDict = [:]
-        // 不要清除 selectedPerson，避免UI闪烁
+  
+    
+}
+
+// 添加扩展方法
+extension FamilyTreeViewModel {
+    func updateStateManager(_ stateManager: StateManager) {
+        self.stateManager = stateManager
+        // 重新设置绑定
+        cancellables.removeAll()
+        setupBindings()
+        // 同步当前数据
+        self.persons = stateManager.state.persons
+        self.relationships = stateManager.state.relationships
+        self.selectedPerson = stateManager.state.selectedPerson
     }
-    
-    // 修改 refreshAfterFamilySwitch 方法
-    func refreshAfterFamilySwitch() async {
-        guard let familyManager = familyManager, 
-              let currentFamily = familyManager.currentFamily else {
-            print("⚠️ 刷新数据时未找到当前家谱")
-            return
-        }
-        
-        print("🔄 家谱切换后刷新数据：\(currentFamily.name)")
-        
-        // 更新当前家谱 ID
-        currentFamilyId = currentFamily.id
-        
-        // 加载数据
-        do {
-            // 清空现有数据
-            clearAllData()
-            
-            // 重新加载数据
-            try await loadData()
-            print("✅ 家谱切换后数据刷新完成：\(persons.count) 个成员，\(relationships.count) 个关系")
-        } catch {
-            print("❌ 切换家谱后刷新数据失败：\(error)")
-        }
-    }
-    
-    func savePerson(_ person: Person) async throws {
-        do {
-            try await dataManager.savePerson(person)
-            await MainActor.run {
-                personsDict[person.id] = person
-                persons = Array(personsDict.values)
-                selectedPerson = person
-            }
-        } catch {
-            throw error
-        }
-    }
-    
-    func deletePerson(_ person: Person) async throws {
-        do {
-            try await dataManager.deletePerson(person.id)
-            await MainActor.run {
-                personsDict.removeValue(forKey: person.id)
-                persons = Array(personsDict.values)
-                
-                relationships.removeAll { relation in
-                    if relation.fromPerson == person.id || relation.toPerson == person.id {
-                        relationshipsDict.removeValue(forKey: relation.id)
-                        return true
-                    }
-                    return false
-                }
-            }
-        } catch {
-            throw error
-        }
-    }
-    
-    func addRelationship(_ relationship: Relationship) async throws {
-        do {
-            try await dataManager.saveRelationship(relationship)
-            await MainActor.run {
-                relationshipsDict[relationship.id] = relationship
-                relationships = Array(relationshipsDict.values)
-            }
-        } catch {
-            print("保存关系失败：\(error)")
-            throw error
-        }
-    }
-    
-    func selectPerson(_ person: Person) {
-        selectedPerson = person
-    }
-    
-    
 }

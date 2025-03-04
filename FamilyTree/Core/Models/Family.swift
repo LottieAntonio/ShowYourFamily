@@ -5,6 +5,7 @@ struct Family: Codable, Identifiable, Hashable {
     var name: String
     var description: String?
     var isDefault: Bool
+    var defaultLastName: String?  // 添加默认姓氏属性
     var createdAt: Date
     var lastModified: Date
     

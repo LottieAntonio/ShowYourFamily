@@ -18,13 +18,13 @@ struct PersonCard: View {
     @State private var showingSetSelfSuccessAlert = false  // 添加设置成功的 alert 状态
     @State private var isSettingSelf = false  // 添加设置中状态
     
-    // 删除 showingConfirmation
-    
-    init(person: Person?, mode: PersonCardMode, managementViewModel: PersonManagementViewModel) {
+    // 添加 appViewModel 参数
+    init(person: Person?, mode: PersonCardMode, stateManager: StateManager, appViewModel: FamilyAppViewModel? = nil) {
         _viewModel = StateObject(wrappedValue: PersonCardViewModel(
             person: person,
             mode: mode,
-            managementViewModel: managementViewModel
+            stateManager: stateManager,
+            appViewModel: appViewModel
         ))
     }
     
@@ -98,7 +98,7 @@ struct PersonCard: View {
                     print("⏳ 开始执行 setSelfPerson")
                     try? await viewModel.setSelfPerson()
                     print("⏳ 重新加载数据")
-                    await viewModel.reloadData()  // 修改这行，使用 viewModel 的方法
+                    await viewModel.reloadData()  // 这里会使用 appViewModel 刷新数据
                     print("✅ setSelfPerson 执行完成")
                     dismiss()
                 }
@@ -152,6 +152,8 @@ struct PersonCard: View {
         Task {
             do {
                 try await viewModel.save()
+                // 使用viewModel的refreshData方法，而不是直接访问appViewModel
+                await viewModel.refreshData()
                 dismiss()
             } catch {
                 showingAlert = true
@@ -162,7 +164,9 @@ struct PersonCard: View {
     private func deletePerson() {
         Task {
             do {
-                try await viewModel.deletePerson()  // 修改这里，使用 deletePerson 而不是 delete
+                try await viewModel.deletePerson()
+                // 使用viewModel的refreshData方法，而不是直接访问appViewModel
+                await viewModel.refreshData()
                 dismiss()
             } catch {
                 showingAlert = true

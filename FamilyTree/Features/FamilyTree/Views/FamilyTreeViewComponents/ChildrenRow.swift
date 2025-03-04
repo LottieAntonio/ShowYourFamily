@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ChildrenRow: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var isTransitioning: Bool
     @Binding var selectedPersonId: UUID?
@@ -14,7 +14,7 @@ struct ChildrenRow: View {
         GridRow {
             RelationshipSection(
                 title: "子女",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .child),
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .child),
                 onAddTap: {
                     Task {
                         await showAddRelation(
@@ -28,7 +28,6 @@ struct ChildrenRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .child
@@ -63,7 +62,8 @@ struct ChildrenRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.flyTransition) {
                 transitionOffset = .zero
-                personManager.selectedPerson = person
+                // 使用 appViewModel.stateManager 替代 stateManager
+                appViewModel.getStateManager().selectPerson(person)
                 showingPersonCard = false
                 isTransitioning = false
             }

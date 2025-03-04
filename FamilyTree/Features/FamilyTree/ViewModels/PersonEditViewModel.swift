@@ -5,11 +5,13 @@ import SwiftUI
 class PersonEditViewModel: ObservableObject {
     @Published private(set) var state: PersonState
     private let person: Person
-    private let managementViewModel: PersonManagementViewModel
+    private let stateManager: StateManager
+    private weak var appViewModel: FamilyAppViewModel?  // 添加 appViewModel 引用
     
-    init(person: Person, managementViewModel: PersonManagementViewModel) {
+    init(person: Person, stateManager: StateManager, appViewModel: FamilyAppViewModel? = nil) {
         self.person = person
-        self.managementViewModel = managementViewModel
+        self.stateManager = stateManager
+        self.appViewModel = appViewModel
         self.state = PersonState(from: person)
     }
     
@@ -115,20 +117,20 @@ class PersonEditViewModel: ObservableObject {
                 email: state.contacts.email.isEmpty ? nil : state.contacts.email,
                 qq: state.contacts.qq.isEmpty ? nil : state.contacts.qq
             )
+        } else {
+            updatedPerson.contacts = nil
         }
         
         updatedPerson.lifeEvents = state.events.isEmpty ? nil : state.events
         updatedPerson.stories = state.stories.isEmpty ? nil : state.stories
         
-        try await managementViewModel.updatePerson(updatedPerson)
+        try await stateManager.updatePerson(updatedPerson)
+        
+        // 更新后通知 appViewModel 刷新数据
+        await appViewModel?.refreshData()
     }
     
     var isValid: Bool {
         !state.basicInfo.firstName.isEmpty && !state.basicInfo.lastName.isEmpty
-    }
-    
-    // 修改访问器名称以避免命名冲突
-    var personManager: PersonManagementViewModel {
-        return managementViewModel
     }
 }

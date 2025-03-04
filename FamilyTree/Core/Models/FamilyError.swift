@@ -1,6 +1,6 @@
 import Foundation
 
-enum FamilyError: LocalizedError {
+public enum FamilyError: LocalizedError {
     case noCurrentFamily
     case defaultFamilyNotEditable
     case defaultFamilyNotFound
@@ -8,7 +8,7 @@ enum FamilyError: LocalizedError {
     case cannotModifyDefaultFamily
     case personNotInCurrentFamily
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .noCurrentFamily:
             return "未选择当前家谱"

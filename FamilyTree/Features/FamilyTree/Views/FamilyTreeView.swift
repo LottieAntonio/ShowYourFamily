@@ -3,8 +3,8 @@ import SwiftUI
 // 删除原来的动画配置
 
 struct FamilyTreeView: View {
-    @StateObject private var viewModel: FamilyTreeViewModel
-    @StateObject private var personManager: PersonManagementViewModel
+    // 修改 stateManager 为 appViewModel
+    @EnvironmentObject private var appViewModel: FamilyAppViewModel
     @State private var showingPersonCard = false
     @State private var selectedMode: PersonCardMode = .view
     @State private var selectedPersonOffset: CGSize = .zero
@@ -14,15 +14,15 @@ struct FamilyTreeView: View {
     
     @Namespace private var animation
     
-    init(familyManager: FamilyManagementViewModel) {
-        // 使用已存在的 FamilyTreeViewModel
-        let familyViewModel = familyManager.familyTreeViewModel ?? FamilyTreeViewModel(familyManager: familyManager)
-        
-        _viewModel = StateObject(wrappedValue: familyViewModel)
-        _personManager = StateObject(wrappedValue: PersonManagementViewModel(
-            familyTreeViewModel: familyViewModel,
-            familyManager: familyManager
-        ))
+    // 使用 appViewModel 创建所需的视图模型
+    @StateObject private var viewModel: FamilyTreeViewModel
+    @StateObject private var personManager: PersonManagementViewModel
+   
+    init() {
+        // 使用临时的空 StateManager 初始化，实际的 StateManager 会通过 appViewModel 获取
+        let tempStateManager = StateManager(dataManager: LocalDataManager())
+        _viewModel = StateObject(wrappedValue: FamilyTreeViewModel(stateManager: tempStateManager))
+        _personManager = StateObject(wrappedValue: PersonManagementViewModel(stateManager: tempStateManager))
     }
     
     @AppStorage("hasInitializedSelf") private var hasInitializedSelf = false
@@ -31,8 +31,6 @@ struct FamilyTreeView: View {
     var body: some View {
         NavigationStack {
             FamilyTreeContentView(
-                viewModel: viewModel,
-                personManager: personManager,
                 showingPersonCard: $showingPersonCard,
                 selectedMode: $selectedMode,
                 isTransitioning: $isTransitioning,
@@ -52,50 +50,41 @@ struct FamilyTreeView: View {
                             return personManager.selectedPerson
                         }(),
                         mode: selectedMode,
-                        managementViewModel: personManager
+                        stateManager: appViewModel.getStateManager(),
+                        appViewModel: appViewModel
                     )
                 }
             }
             .onChange(of: personManager.persons) { oldValue, newPersons in
-                // 如果人物列表发生变化
                 if !newPersons.isEmpty {
-                    // 如果是新添加的人物（通过比较数组长度和最后一个元素）
-                    if newPersons.count > personManager.persons.count,
+                    if newPersons.count > oldValue.count,  // 修改这里使用 oldValue
                        let lastPerson = newPersons.last {
                         Task { @MainActor in
-                            // 将新添加的人物设置为当前选中的人物
                             personManager.selectedPerson = lastPerson
-                            // 同时更新 lastSelectedPersonId
                             lastSelectedPersonId = lastPerson.id.uuidString
-                            // 关闭添加表单
                             showingPersonCard = false
-                            // 强制重新加载数据
-                            await personManager.loadData()
+                            await appViewModel.refreshData()
                         }
                     }
                 }
             }
         }
         .onAppear {
+            // 初始化视图模型，使用 appViewModel 的 stateManager
+            viewModel.updateStateManager(appViewModel.getStateManager())
+            personManager.updateStateManager(appViewModel.getStateManager())
+            
             Task {
-                await personManager.loadData()
-                // 只在第一次启动时设置默认选中人物
-                if personManager.selectedPerson == nil {
-                    if let lastId = UUID(uuidString: lastSelectedPersonId),
-                       let lastPerson = personManager.persons.first(where: { $0.id == lastId }) {
-                        // 恢复上次选中的人物
-                        personManager.selectedPerson = lastPerson
-                    } else if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                        // 如果没有上次选中的人物，则显示"自己"
-                        personManager.selectedPerson = selfPerson
-                    }
-                }
+                await appViewModel.refreshData()
+                await setSelfPersonAsSelected()
             }
         }
         .onChange(of: personManager.selectedPerson) { oldValue, newPerson in
-            // 保存当前选中的人物 ID
             if let personId = newPerson?.id {
                 lastSelectedPersonId = personId.uuidString
+                Task {
+                    await appViewModel.refreshData()
+                }
             }
         }
     }
@@ -133,15 +122,4 @@ struct FamilyTreeView: View {
     // 删除第二个重复的 showAddRelation 方法
 }
 
-#Preview("家谱") {
-    let dataManager = LocalDataManager()  // 修改这里，直接创建实例
-    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
-    FamilyTreeView(familyManager: familyManager)
-}
 
-#Preview("家谱-深色") {
-    let dataManager = LocalDataManager()  // 修改这里，直接创建实例
-    let familyManager = FamilyManagementViewModel(dataManager: dataManager)
-    FamilyTreeView(familyManager: familyManager)
-        .preferredColorScheme(.dark)
-}

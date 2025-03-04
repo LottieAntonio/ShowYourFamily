@@ -2,13 +2,13 @@ import SwiftUI
 
 struct CurrentPersonRow: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+    // 修改为使用 appViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var selectedMode: PersonCardMode
     @Binding var isTransitioning: Bool
     var animation: Namespace.ID
     
-    // 添加状态变量
     @State private var isProcessing = false
     
     var body: some View {
@@ -22,7 +22,6 @@ struct CurrentPersonRow: View {
                     Menu {
                         Button(action: {
                             withAnimation(.personTransition) {
-                                personManager.selectedPerson = currentPerson
                                 selectedMode = .edit
                                 showingPersonCard = true
                             }
@@ -35,10 +34,11 @@ struct CurrentPersonRow: View {
                                 Task {
                                     let cardViewModel = PersonCardViewModel(
                                         person: currentPerson,
-                                        mode: .view,
-                                        managementViewModel: personManager
+                                        mode: PersonCardMode.view,
+                                        stateManager: appViewModel.getStateManager()
                                     )
                                     try? await cardViewModel.setSelfPerson()
+                                    await appViewModel.refreshData()  // 添加刷新
                                 }
                             }) {
                                 Label("设置为自己", systemImage: "person.crop.circle.badge.checkmark")
@@ -51,25 +51,16 @@ struct CurrentPersonRow: View {
                                 Button(action: {
                                     isProcessing = true
                                     Task {
-                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                            // 检查是否已经存在关系
-                                            let existingRelations = personManager.relationships.filter { 
-                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                            }
+                                        if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                            let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                             
-                                            // 如果没有现有关系，才建立新关系
                                             if existingRelations.isEmpty {
-                                                try? await personManager.relationshipService.addRelationship(
+                                                try? await appViewModel.getStateManager().addRelationship(
                                                     from: selfPerson,
                                                     to: currentPerson,
                                                     type: .father
                                                 )
-                                                await personManager.loadData()
-                                                // 强制更新 UI
-                                                await MainActor.run {
-                                                    personManager.objectWillChange.send()
-                                                }
+                                                await appViewModel.refreshData()  // 添加刷新
                                             }
                                         }
                                         isProcessing = false
@@ -85,22 +76,15 @@ struct CurrentPersonRow: View {
                                 Button(action: {
                                     isProcessing = true
                                     Task {
-                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                            let existingRelations = personManager.relationships.filter { 
-                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                            }
-                                            
+                                        if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                            let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                             if existingRelations.isEmpty {
-                                                try? await personManager.relationshipService.addRelationship(
+                                                try? await appViewModel.getStateManager().addRelationship(
                                                     from: selfPerson,
                                                     to: currentPerson,
                                                     type: .mother
                                                 )
-                                                await personManager.loadData()
-                                                await MainActor.run {
-                                                    personManager.objectWillChange.send()
-                                                }
+                                                await appViewModel.refreshData()  // 添加刷新
                                             }
                                         }
                                         isProcessing = false
@@ -115,22 +99,16 @@ struct CurrentPersonRow: View {
                             Button(action: {
                                 isProcessing = true
                                 Task {
-                                    if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                        let existingRelations = personManager.relationships.filter { 
-                                            ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                            ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                        }
+                                    if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                        let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                         
                                         if existingRelations.isEmpty {
-                                            try? await personManager.relationshipService.addRelationship(
+                                            try? await appViewModel.getStateManager().addRelationship(
                                                 from: selfPerson,
                                                 to: currentPerson,
                                                 type: .spouse
                                             )
-                                            await personManager.loadData()
-                                            await MainActor.run {
-                                                personManager.objectWillChange.send()
-                                            }
+                                            await appViewModel.refreshData()  // 添加刷新
                                         }
                                     }
                                     isProcessing = false
@@ -144,22 +122,15 @@ struct CurrentPersonRow: View {
                             Button(action: {
                                 isProcessing = true
                                 Task {
-                                    if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                        let existingRelations = personManager.relationships.filter { 
-                                            ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                            ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                        }
+                                    if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                        let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                         
                                         if existingRelations.isEmpty {
-                                            try? await personManager.relationshipService.addRelationship(
+                                            try? await appViewModel.getStateManager().addRelationship(
                                                 from: selfPerson,
                                                 to: currentPerson,
                                                 type: .child
                                             )
-                                            await personManager.loadData()
-                                            await MainActor.run {
-                                                personManager.objectWillChange.send()
-                                            }
                                         }
                                     }
                                     isProcessing = false
@@ -174,22 +145,15 @@ struct CurrentPersonRow: View {
                                 Button(action: {
                                     isProcessing = true
                                     Task {
-                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                            let existingRelations = personManager.relationships.filter { 
-                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                            }
+                                        if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                            let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                             
                                             if existingRelations.isEmpty {
-                                                try? await personManager.relationshipService.addRelationship(
+                                                try? await appViewModel.getStateManager().addRelationship(
                                                     from: selfPerson,
                                                     to: currentPerson,
                                                     type: .brother
                                                 )
-                                                await personManager.loadData()
-                                                await MainActor.run {
-                                                    personManager.objectWillChange.send()
-                                                }
                                             }
                                         }
                                         isProcessing = false
@@ -202,22 +166,15 @@ struct CurrentPersonRow: View {
                                 Button(action: {
                                     isProcessing = true
                                     Task {
-                                        if let selfPerson = personManager.persons.first(where: { $0.isSelf }) {
-                                            let existingRelations = personManager.relationships.filter { 
-                                                ($0.fromPerson == currentPerson.id && $0.toPerson == selfPerson.id) ||
-                                                ($0.fromPerson == selfPerson.id && $0.toPerson == currentPerson.id)
-                                            }
+                                        if let selfPerson = await appViewModel.getStateManager().getSelfPerson() {
+                                            let existingRelations = appViewModel.getStateManager().getRelationships(between: currentPerson, and: selfPerson)
                                             
                                             if existingRelations.isEmpty {
-                                                try? await personManager.relationshipService.addRelationship(
+                                                try? await appViewModel.getStateManager().addRelationship(
                                                     from: selfPerson,
                                                     to: currentPerson,
                                                     type: .sister
                                                 )
-                                                await personManager.loadData()
-                                                await MainActor.run {
-                                                    personManager.objectWillChange.send()
-                                                }
                                             }
                                         }
                                         isProcessing = false
@@ -238,12 +195,13 @@ struct CurrentPersonRow: View {
                 PersonCard(
                     person: currentPerson,
                     mode: .view,
-                    managementViewModel: personManager
+                    stateManager: appViewModel.getStateManager(),
+                    appViewModel: appViewModel  // 添加 appViewModel
                 )
                 .id(currentPerson.id)
                 .onTapGesture {
                     withAnimation(.personTransition) {
-                        personManager.selectedPerson = currentPerson
+                        appViewModel.getStateManager().selectPerson(currentPerson)
                         selectedMode = .edit
                         showingPersonCard = true
                     }

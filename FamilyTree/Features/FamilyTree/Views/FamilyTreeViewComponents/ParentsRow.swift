@@ -3,7 +3,8 @@ import SwiftUI
 
 struct ParentsRow: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+    // 修改为使用 appViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var isTransitioning: Bool
     @Binding var selectedPersonId: UUID?
@@ -19,7 +20,7 @@ struct ParentsRow: View {
             // 父亲关系区域
             RelationshipSection(
                 title: "父亲",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .father),
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .father),
                 onAddTap: {
                     Task {
                         await MainActor.run {
@@ -38,7 +39,6 @@ struct ParentsRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person, direction: .left)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .father
@@ -53,7 +53,7 @@ struct ParentsRow: View {
             // 母亲关系区域
             RelationshipSection(
                 title: "母亲",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .mother),
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .mother),
                 onAddTap: {
                     Task {
                         await MainActor.run {
@@ -72,7 +72,6 @@ struct ParentsRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person, direction: .right)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .mother
@@ -99,7 +98,7 @@ struct ParentsRow: View {
     }
     
     private func handleAddParent(_ person: Person, type: RelationType, lastName: String?, gender: Person.Gender?) async {
-        let existingParents = personManager.relationshipService.getRelatedPersons(
+        let existingParents = appViewModel.getStateManager().getRelatedPersons(
             for: person,
             relationType: type
         )
@@ -142,7 +141,6 @@ struct ParentsRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.spring(duration: 0.3)) {
                 transitionOffset = .zero
-                personManager.selectedPerson = person
                 showingPersonCard = false
                 isTransitioning = false
             }

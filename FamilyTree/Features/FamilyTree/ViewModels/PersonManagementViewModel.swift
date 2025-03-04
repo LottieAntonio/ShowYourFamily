@@ -12,132 +12,54 @@ import Combine
  * 4. 处理数据的持久化和同步
  */
 
+// 将 stateManager 从 private let 改为 private var
 @MainActor
 class PersonManagementViewModel: ObservableObject {
     // MARK: - Published Properties
-    @Published private(set) var persons: [Person] = []          // 所有人物列表
-    @Published private(set) var relationships: [Relationship] = [] // 所有关系列表
-    @Published var selectedPerson: Person?                      // 当前选中的人物
-    @Published var errorMessage: String?                        // 错误信息
-    @Published var defaultLastName: String?                     // 默认姓氏（用于新建人物）
-    @Published var defaultGender: Person.Gender?                // 默认性别（用于新建人物）
-    @Published var isProcessing: Bool = false  // 添加处理状态属性
-
+    @Published private(set) var persons: [Person] = []
+    @Published private(set) var relationships: [Relationship] = []
+    @Published var selectedPerson: Person?
+    @Published var errorMessage: String?
+    @Published var defaultLastName: String?
+    @Published var defaultGender: Person.Gender?
+    @Published var isProcessing: Bool = false
     
     // MARK: - Dependencies
-    let familyTreeViewModel: FamilyTreeViewModel                
-    private(set) var titleGenerator: RelativeTitleGenerator     // 改为 private(set)
-    var relationshipService: RelationshipService                
-    private var personService: PersonDataService
-    private var cancellables = Set<AnyCancellable>()           
-
-    // MARK: - Initialization
-    // 保留旧的初始化器以保持兼容性
-    init(familyTreeViewModel: FamilyTreeViewModel, familyManager: FamilyManagementViewModel) {
-        self.familyTreeViewModel = familyTreeViewModel
-        let dataManager = familyTreeViewModel.dataManager
-        
-        // 初始化服务时使用空数组，避免过早访问 familyTreeViewModel 的属性
+    private var stateManager: StateManager  // 改为 var
+    private weak var appViewModel: FamilyAppViewModel?
+    private var titleGenerator: RelativeTitleGenerator
+    private var cancellables = Set<AnyCancellable>()
+    
+    // 修改初始化方法，添加 appViewModel 参数
+    init(stateManager: StateManager, appViewModel: FamilyAppViewModel? = nil) {
+        self.stateManager = stateManager
+        self.appViewModel = appViewModel
         self.titleGenerator = RelativeTitleGenerator(
-            relationships: [],
-            persons: []
+            relationships: stateManager.state.relationships,
+            persons: stateManager.state.persons
         )
+        setupBindings()
         
-        self.relationshipService = RelationshipService(
-            dataManager: dataManager,
-            relationships: [],
-            persons: []
-        )
-        
-        self.personService = PersonDataService(dataManager: dataManager)
-        
-        // 设置数据观察者
-        Task { @MainActor in
-            // 初始化完成后再更新数据
-            self.updateData()
-            self.setupDataObservers()
-        }
+        // 同步初始数据
+        self.persons = stateManager.state.persons
+        self.relationships = stateManager.state.relationships
+        self.selectedPerson = stateManager.state.selectedPerson
+    }
+    
+    // 修改 setupBindings 方法，添加 titleGenerator 更新逻辑
+    private func setupBindings() {
+        // 保持现有的绑定逻辑
     }
     
     // MARK: - Private Methods
-    private func setupDataObservers() {
-        // 观察 FamilyTreeViewModel 的数据变化
-        Publishers.CombineLatest(
-            familyTreeViewModel.$persons,
-            familyTreeViewModel.$relationships
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _ in
-            self?.updateData()
-        }
-        .store(in: &cancellables)
-        
-        // 观察 relationshipService 的数据变化
-        relationshipService.$relationships
-            .combineLatest(relationshipService.$persons)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateData()
-            }
-            .store(in: &cancellables)
-    }
     
-    private func updateData() {
-        Task { @MainActor in
-            // 只在必要时更新数据
-            let newPersons = familyTreeViewModel.persons
-            let newRelationships = familyTreeViewModel.relationships
-            
-            // 检查数据是否真的改变了
-            guard persons != newPersons || relationships != newRelationships else {
-                return
-            }
-            
-            persons = newPersons
-            relationships = newRelationships
-            
-            // 更新 relationshipService
-            relationshipService.updateData(
-                relationships: relationships,
-                persons: persons
-            )
-            
-            // 更新称谓生成器
-            titleGenerator = RelativeTitleGenerator(
-                relationships: relationships,
-                persons: persons
-            )
-            
-            // 更新选中状态
-            // 修改选中状态的逻辑
-            if let selectedId = selectedPerson?.id {
-                selectedPerson = persons.first(where: { $0.id == selectedId })
-            } else if let lastPerson = persons.last {
-                // 如果没有选中的人物，选择最后一个（最新添加的）
-                selectedPerson = lastPerson
-            }
-            
-            objectWillChange.send()
-        }
-    }
-    
-    // 修改 loadData 方法中的类型转换
     // 修改 loadData 方法
     func loadData() async {
-        guard let familyManager = familyTreeViewModel.familyManager,
-              let currentFamily = familyManager.currentFamily else { return }
-        
-        do {
-            let persons = try await familyTreeViewModel.dataManager.loadPersons(familyId: currentFamily.id)
-            let relationships = try await familyTreeViewModel.dataManager.loadRelationships(familyId: currentFamily.id)
-            
-            await MainActor.run {
-                self.persons = persons
-                self.relationships = relationships
-                updateServices(persons: persons, relationships: relationships)
-            }
-        } catch {
-            errorMessage = "加载数据失败：\(error.localizedDescription)"
+        // 优先使用 appViewModel 刷新数据
+        if let appViewModel = appViewModel {
+            await appViewModel.refreshData()
+        } else {
+            await stateManager.loadInitialData()
         }
     }
     
@@ -147,16 +69,15 @@ class PersonManagementViewModel: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
         
-        try await familyTreeViewModel.dataManager.savePerson(person)  // 修改这里
-        await loadData()
+        try await stateManager.updatePerson(person)
+        
+        // 更新后通知 appViewModel
+        await appViewModel?.refreshData()
     }
-    
-   
     
     // 修改 addRelationship 方法
     func addRelationship(from: Person, to: Person, type: RelationType) async throws {
-        guard let familyManager = familyTreeViewModel.familyManager,
-              let currentFamily = familyManager.currentFamily else {
+        guard let currentFamily = stateManager.state.currentFamily else {
             throw FamilyError.noCurrentFamily
         }
         
@@ -164,14 +85,31 @@ class PersonManagementViewModel: ObservableObject {
             throw FamilyError.cannotModifyDefaultFamily
         }
         
-        try await relationshipService.addRelationship(from: from, to: to, type: type)
-        await reloadData()
+        let relationship = Relationship(
+            type: type,
+            fromPerson: from.id,
+            toPerson: to.id
+        )
+        
+        try await stateManager.addRelationship(relationship)
+        
+        // 处理特殊关系
+        switch type {
+        case .father, .mother:
+            await handleParentRelationship(type, parent: from, child: to)
+        case .spouse:
+            await handleSpouseRelationship(from: from, to: to)
+        default:
+            break
+        }
+        
+        // 添加关系后通知 appViewModel
+        await appViewModel?.refreshData()
     }
     
     // 修改 deletePerson 方法
     func deletePerson(_ person: Person) async throws {
-        guard let familyManager = familyTreeViewModel.familyManager,
-              let currentFamily = familyManager.currentFamily else {
+        guard let currentFamily = stateManager.state.currentFamily else {
             throw FamilyError.noCurrentFamily
         }
         
@@ -179,59 +117,77 @@ class PersonManagementViewModel: ObservableObject {
             throw FamilyError.cannotModifyDefaultFamily
         }
         
-        try await personService.deletePerson(person.id, relationships: relationships)
+        try await stateManager.deletePerson(person)
+        
         if selectedPerson?.id == person.id {
             selectedPerson = nil
         }
-        await reloadData()
+        
+        // 删除后通知 appViewModel
+        await appViewModel?.refreshData()
     }
-    
-    // 添加辅助方法
-    private func updateServices(persons: [Person], relationships: [Relationship]) {
-        relationshipService.updateData(relationships: relationships, persons: persons)
-        titleGenerator = RelativeTitleGenerator(relationships: relationships, persons: persons)
-    }
-
-
-
-    
-    
    
-    // 添加新方法
-    private func handleParentRelationship(_ parentType: RelationType, parent: Person, child: Person) async throws {
-        // 修改这里：使用 relationshipService 来获取关系
+    // 修改 handleParentRelationship 方法
+    private func handleParentRelationship(_ parentType: RelationType, parent: Person, child: Person) async {
+        // 检查是否存在另一个父母
         let otherParentType: RelationType = parentType == .father ? .mother : .father
-        if let otherParent = relationshipService.getRelatedPersons(for: child, relationType: otherParentType).first {
-            // 检查是否已经存在配偶关系
-            let existingSpouseRelation = relationships.first { relationship in
-                (relationship.fromPerson == parent.id && relationship.toPerson == otherParent.id ||
-                 relationship.fromPerson == otherParent.id && relationship.toPerson == parent.id) &&
-                relationship.type == .spouse
-            }
+        if let otherParent = stateManager.getRelatedPersons(for: child, relationType: otherParentType).first {
+            // 添加配偶关系
+            try? await stateManager.addRelationship(Relationship(
+                type: .spouse,
+                fromPerson: parent.id,
+                toPerson: otherParent.id
+            ))
             
-            // 如果不存在配偶关系，则创建
-            if existingSpouseRelation == nil {
-                try await addRelationship(from: parent, to: otherParent, type: .spouse)
-            }
+            // 添加关系后通知 appViewModel
+            await appViewModel?.refreshData()
+        }
+    }
+
+    // 修改 handleSpouseRelationship 方法
+    private func handleSpouseRelationship(from person1: Person, to person2: Person) async {
+        // 获取双方的子女
+        let children1 = stateManager.getRelatedPersons(for: person1, relationType: .child)
+        let children2 = stateManager.getRelatedPersons(for: person2, relationType: .child)
+        
+        // 为双方的子女添加关系
+        for child in children1 {
+            try? await stateManager.addRelationship(Relationship(
+                type: person2.gender == .male ? .father : .mother,
+                fromPerson: child.id,
+                toPerson: person2.id
+            ))
         }
         
-        // 然后再创建父母-子女关系
-        let childRelationship = Relationship(type: parentType, fromPerson: child.id, toPerson: parent.id)
-        try await familyTreeViewModel.dataManager.saveRelationship(childRelationship)
-        await reloadData()
+        for child in children2 {
+            try? await stateManager.addRelationship(Relationship(
+                type: person1.gender == .male ? .father : .mother,
+                fromPerson: child.id,
+                toPerson: person1.id
+            ))
+        }
+        
+        // 添加关系后通知 appViewModel
+        await appViewModel?.refreshData()
     }
     
-    
+    // 修改 addStory 方法
     func addStory(_ story: Story, to person: Person) async throws {
-        try await personService.addStory(story, to: person)
-        await reloadData()
+        var updatedPerson = person
+        var stories = person.stories ?? []
+        stories.append(story)
+        updatedPerson.stories = stories
+        try await stateManager.updatePerson(updatedPerson)
+        
+        // 添加故事后通知 appViewModel
+        await appViewModel?.refreshData()
     }
     
     // 获取子女默认姓氏
     func getDefaultLastName(for person: Person, relationType: RelationType) -> String? {
-        if relationType == .child,
-           let father = relationshipService.getRelatedPersons(for: person, relationType: .father).first {
-            return father.lastName
+        if relationType == .child {
+            let father = stateManager.getRelatedPersons(for: person, relationType: .father).first
+            return father?.lastName
         }
         return nil
     }
@@ -248,12 +204,39 @@ class PersonManagementViewModel: ObservableObject {
         defaultGender = nil
     }
     
-    private func reloadData() async {
-        do {
-            try await familyTreeViewModel.loadData()
-            updateData()
-        } catch {
-            errorMessage = "加载数据失败：\(error.localizedDescription)"
+    // 添加关系查询的便捷方法
+    func getRelatedPersons(for person: Person, relationType: RelationType) -> [Person] {
+        return stateManager.getRelatedPersons(for: person, relationType: relationType)
+    }
+
+    // 添加获取潜在父母的方法
+    func getPotentialParents(for person: Person, type: RelationType) -> [Person] {
+        // 实现类似 RelationshipService 中的逻辑
+        let otherParentType: RelationType = type == .father ? .mother : .father
+        guard let otherParent = getRelatedPersons(for: person, relationType: otherParentType).first else {
+            return []
         }
+        
+        return getRelatedPersons(for: otherParent, relationType: .spouse)
+            .filter { $0.gender == (type == .father ? .male : .female) }
+    }
+}
+
+// 添加扩展方法
+extension PersonManagementViewModel {
+    func updateStateManager(_ stateManager: StateManager) {
+        self.stateManager = stateManager
+        // 更新 titleGenerator
+        self.titleGenerator = RelativeTitleGenerator(
+            relationships: stateManager.state.relationships,
+            persons: stateManager.state.persons
+        )
+        // 重新设置绑定
+        cancellables.removeAll()
+        setupBindings()
+        // 同步当前数据
+        self.persons = stateManager.state.persons
+        self.relationships = stateManager.state.relationships
+        self.selectedPerson = stateManager.state.selectedPerson
     }
 }

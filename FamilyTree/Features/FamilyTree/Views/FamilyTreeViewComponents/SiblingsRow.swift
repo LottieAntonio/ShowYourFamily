@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SiblingsRow: View {
     let currentPerson: Person
-    @ObservedObject var personManager: PersonManagementViewModel
+    // 修改为使用 appViewModel
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var isTransitioning: Bool
     @Binding var selectedPersonId: UUID?
@@ -14,7 +15,8 @@ struct SiblingsRow: View {
         GridRow {
             RelationshipSection(
                 title: "兄弟",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .brother),
+                // 使用 appViewModel.stateManager 获取关系数据
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .brother),
                 onAddTap: {
                     Task {
                         await showAddRelation(
@@ -28,7 +30,6 @@ struct SiblingsRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person, direction: .left)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .brother
@@ -36,7 +37,8 @@ struct SiblingsRow: View {
             
             RelationshipSection(
                 title: "姐妹",
-                persons: personManager.relationshipService.getRelatedPersons(for: currentPerson, relationType: .sister),
+                // 使用 appViewModel.stateManager 获取关系数据
+                persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .sister),
                 onAddTap: {
                     Task {
                         await showAddRelation(
@@ -50,7 +52,6 @@ struct SiblingsRow: View {
                 onPersonTap: { person in
                     handlePersonTap(person, direction: .right)
                 },
-                viewModel: personManager,
                 animation: animation,
                 selectedPersonId: $selectedPersonId,
                 type: .sister
@@ -81,7 +82,7 @@ struct SiblingsRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.flyTransition) {
                 transitionOffset = .zero
-                personManager.selectedPerson = person
+                appViewModel.personManager.selectedPerson = person
                 showingPersonCard = false
                 isTransitioning = false
             }
