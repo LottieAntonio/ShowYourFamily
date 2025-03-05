@@ -64,6 +64,8 @@ class FamilyAppViewModel: ObservableObject {
                 self?.persons = state.persons
                 self?.relationships = state.relationships
                 self?.selectedPerson = state.selectedPerson
+                // 同步加载状态
+                self?.isLoading = state.isLoading
             }
             .store(in: &cancellables)
         
@@ -93,7 +95,7 @@ class FamilyAppViewModel: ObservableObject {
     // MARK: - 数据刷新方法
     
     private func refreshAllViewModels(for family: Family) async {
-        isLoading = true
+        // 不再手动设置 isLoading，而是通过 StateManager 来控制
         errorMessage = nil
         
         do {
@@ -112,8 +114,6 @@ class FamilyAppViewModel: ObservableObject {
             print("❌ 数据刷新失败：\(error.localizedDescription)")
             errorMessage = "数据刷新失败：\(error.localizedDescription)"
         }
-        
-        isLoading = false
     }
     
     func loadInitialData() async {
@@ -123,7 +123,8 @@ class FamilyAppViewModel: ObservableObject {
             return
         }
         
-        isLoading = true
+        // 通过 StateManager 控制加载状态
+        stateManager.updateLoadingState(true)
         errorMessage = nil
         
         do {
@@ -142,7 +143,7 @@ class FamilyAppViewModel: ObservableObject {
             errorMessage = "初始数据加载失败：\(error.localizedDescription)"
         }
         
-        isLoading = false
+        stateManager.updateLoadingState(false)
     }
     
     // MARK: - 公共方法

@@ -141,6 +141,7 @@ struct ParentsRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.spring(duration: 0.3)) {
                 transitionOffset = .zero
+                appViewModel.getStateManager().selectPerson(person)  // 添加这行
                 showingPersonCard = false
                 isTransitioning = false
             }

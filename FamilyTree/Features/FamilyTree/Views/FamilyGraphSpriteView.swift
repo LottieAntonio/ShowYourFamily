@@ -5,6 +5,9 @@ import UIKit
 struct FamilyGraphSpriteView: View {
     @EnvironmentObject var appViewModel: FamilyAppViewModel
     
+    // 添加状态变量跟踪是否已加载数据
+    @State private var hasLoadedData = false
+    
     private static var sharedScene: FamilyGraphScene = {
         let scene = FamilyGraphScene()
         scene.scaleMode = .resizeFill
@@ -29,15 +32,15 @@ struct FamilyGraphSpriteView: View {
                     print("SpriteView appeared with size: \(geometry.size)")
                     scene.setupInitialView(with: geometry.size)
                     
-                    // 添加防重复加载逻辑
+                    // 修改防重复加载逻辑
                     Task {
-                        if appViewModel.familyGraphViewModel.graphData == nil {
-                            await appViewModel.familyGraphViewModel.loadData()
-                        } else {
-                            if let graphData = appViewModel.familyGraphViewModel.graphData {
-                                scene.updateGraph(with: graphData)
-                            }
+                        // 只在有数据且未加载过的情况下更新图表
+                        if let graphData = appViewModel.familyGraphViewModel.graphData {
+                            scene.updateGraph(with: graphData)
+                            hasLoadedData = true
+                            print("♻️ 使用现有数据更新图表")
                         }
+                        // 不再在这里主动加载数据，由 ContentView 的 onChange 处理
                     }
                 }
         }

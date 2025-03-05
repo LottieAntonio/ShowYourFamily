@@ -28,7 +28,7 @@ struct ContentView: View {
             Group {
                 if let currentFamily = appViewModel.currentFamily {
                     FamilyGraphSpriteView()
-                        .id(currentFamily.id)  // 使用家谱ID作为视图标识符
+                        .id("FamilyGraphView-\(currentFamily.id)")  // 修改 ID 格式
                         .environmentObject(appViewModel)
                 } else {
                     ContentUnavailableView("请先选择家谱", systemImage: "point.3.connected.trianglepath.dotted")
@@ -71,12 +71,16 @@ struct ContentView: View {
             }
         }
         .onChange(of: coordinator.currentScreen) { oldValue, newValue in
-            // 只在切换到图谱视图时刷新图谱数据，且只在必要时刷新
-            if newValue == .graph && oldValue != .graph {
+            // 只在以下情况处理数据加载：
+            // 1. 从家谱视图切换到其他视图
+            // 2. 切换到家谱视图
+            if oldValue == .familyTree || newValue == .familyTree {
                 Task {
                     if appViewModel.familyGraphViewModel.graphData == nil {
                         print("📝 切换到家谱：\(appViewModel.currentFamily?.name ?? "未知")")
                         await appViewModel.familyGraphViewModel.loadData()
+                    } else {
+                        print("⏭️ 已有数据，跳过加载")
                     }
                 }
             }

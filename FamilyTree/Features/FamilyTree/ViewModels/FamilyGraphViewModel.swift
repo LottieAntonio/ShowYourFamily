@@ -90,14 +90,59 @@ class FamilyGraphViewModel: ObservableObject {
             print("   - \(fromPerson) -> \(toPerson): \(rel.type)")
         }
         
-        // 获取所有关系
-        let fathers = stateManager.getRelatedPersons(for: centerPerson, relationType: .father)
-        let mothers = stateManager.getRelatedPersons(for: centerPerson, relationType: .mother)
-        let parents = fathers + mothers
-        let children = stateManager.getRelatedPersons(for: centerPerson, relationType: .child)
-        let spouses = stateManager.getRelatedPersons(for: centerPerson, relationType: .spouse)
-        let brothers = stateManager.getRelatedPersons(for: centerPerson, relationType: .brother)
-        let sisters = stateManager.getRelatedPersons(for: centerPerson, relationType: .sister)
+        // 直接从 persons 和 relationships 中获取关系，避免调用 getRelatedPersons
+        let safeRelationships = relationships
+        let safePersons = persons
+        
+        // 获取父亲
+        let fatherIds = safeRelationships
+            .filter { $0.fromPerson == centerPerson.id && $0.type == .father }
+            .map { $0.toPerson }
+        let fathers = safePersons.filter { fatherIds.contains($0.id) && $0.gender == .male }
+        
+        // 获取母亲
+        let motherIds = safeRelationships
+            .filter { $0.fromPerson == centerPerson.id && $0.type == .mother }
+            .map { $0.toPerson }
+        let mothers = safePersons.filter { motherIds.contains($0.id) && $0.gender == .female }
+        
+        // 获取子女
+        let childrenIds = safeRelationships
+            .filter { $0.toPerson == centerPerson.id && ($0.type == .father || $0.type == .mother) }
+            .map { $0.fromPerson }
+        let children = safePersons.filter { childrenIds.contains($0.id) }
+        
+        // 获取配偶
+        let spouseIds = safeRelationships
+            .filter { ($0.fromPerson == centerPerson.id || $0.toPerson == centerPerson.id) && $0.type == .spouse }
+            .map { $0.fromPerson == centerPerson.id ? $0.toPerson : $0.fromPerson }
+        let spouses = safePersons.filter { spouseIds.contains($0.id) }
+        
+        // 获取兄弟姐妹（通过父母间接获取）
+        var siblingIds = Set<UUID>()
+        
+        // 通过父亲找兄弟姐妹
+        for fatherId in fatherIds {
+            let fatherChildrenIds = safeRelationships
+                .filter { $0.toPerson == fatherId && ($0.type == .father || $0.type == .mother) }
+                .map { $0.fromPerson }
+            siblingIds.formUnion(fatherChildrenIds)
+        }
+        
+        // 通过母亲找兄弟姐妹
+        for motherId in motherIds {
+            let motherChildrenIds = safeRelationships
+                .filter { $0.toPerson == motherId && ($0.type == .father || $0.type == .mother) }
+                .map { $0.fromPerson }
+            siblingIds.formUnion(motherChildrenIds)
+        }
+        
+        // 移除自己
+        siblingIds.remove(centerPerson.id)
+        
+        // 获取兄弟和姐妹
+        let brothers = safePersons.filter { siblingIds.contains($0.id) && $0.gender == .male }
+        let sisters = safePersons.filter { siblingIds.contains($0.id) && $0.gender == .female }
         
         // 打印详细的关系信息
         print("📊 关系数据详情:")
@@ -120,6 +165,7 @@ class FamilyGraphViewModel: ObservableObject {
             print("   - 姐妹: \(sisters.map { $0.name }.joined(separator: ", "))")
         }
         
+        let parents = fathers + mothers
         print("📊 关系数据: 父母(\(parents.count)), 子女(\(children.count)), 配偶(\(spouses.count)), 兄弟(\(brothers.count)), 姐妹(\(sisters.count))")
         
         // 创建图谱数据
@@ -127,136 +173,181 @@ class FamilyGraphViewModel: ObservableObject {
     }
     
     private func createGraphData(for person: Person, level: Int, maxDepth: Int) -> FamilyGraphData {
-        var processedPeople = Set<UUID>()
-        return createGraphDataInternal(
-            for: person,
-            level: level,
-            maxDepth: maxDepth,
-            processedPeople: &processedPeople
-        )
-    }
-    
-    private func createGraphDataInternal(
-        for person: Person,
-        level: Int,
-        maxDepth: Int,
-        processedPeople: inout Set<UUID>
-    ) -> FamilyGraphData {
-        // 如果超过最大深度，返回一个只包含基本信息的节点
-        if level >= maxDepth {
-            return FamilyGraphData(
-                centerPerson: person,
-                parents: [],
-                children: [],
-                spouses: [],
-                siblings: []
-            )
+        // 使用队列存储待处理的节点
+        struct QueueItem {
+            let person: Person
+            let level: Int
+            let parentNode: FamilyGraphData.RelationNode?
         }
         
-        // 获取所有关系节点并去重
-        let fathers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .father)))
-        let mothers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .mother)))
-        let parents = fathers + mothers
-        let children = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .child)))
-        let spouses = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .spouse)))
-        let brothers = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .brother)))
-        let sisters = Array(Set(stateManager.getRelatedPersons(for: person, relationType: .sister)))
+        // 存储已处理的节点，避免重复处理
+        var processedPeople = Set<UUID>()
+        var nodeMap = [UUID: FamilyGraphData.RelationNode]()
+        var queue = [QueueItem]()
         
-        // 创建各类关系节点
-        var parentNodes: [FamilyGraphData.RelationNode] = []
-        var childrenNodes: [FamilyGraphData.RelationNode] = []
-        var spouseNodes: [FamilyGraphData.RelationNode] = []
-        var siblingNodes: [FamilyGraphData.RelationNode] = []
+        // 初始化根节点
+        queue.append(QueueItem(person: person, level: 0, parentNode: nil))
         
-        // 处理所有关系
-        if level < maxDepth {
-            // 添加父母节点（受 processedPeople 限制）
-            if !processedPeople.contains(person.id) {
-                for parent in parents {
-                    if !processedPeople.contains(parent.id) {
-                        let subNodes = createGraphDataInternal(
-                            for: parent,
-                            level: level + 1,
-                            maxDepth: maxDepth,
-                            processedPeople: &processedPeople
+        while !queue.isEmpty {
+            let current = queue.removeFirst()
+            
+            // 如果已处理过该节点，跳过
+            if processedPeople.contains(current.person.id) {
+                continue
+            }
+            
+            // 标记为已处理
+            processedPeople.insert(current.person.id)
+            
+            // 获取当前人物的所有关系
+            let relations = getPersonRelations(current.person)
+            
+            // 创建当前节点的子节点
+            var parentNodes: [FamilyGraphData.RelationNode] = []
+            var childrenNodes: [FamilyGraphData.RelationNode] = []
+            var spouseNodes: [FamilyGraphData.RelationNode] = []
+            var siblingNodes: [FamilyGraphData.RelationNode] = []
+            
+            // 如果未超过最大深度，继续处理关系
+            if current.level < maxDepth {
+                // 处理父母
+                for parent in relations.parents {
+                    let node = FamilyGraphData.RelationNode(
+                        person: parent,
+                        relationType: parent.gender == .male ? .father : .mother,
+                        level: current.level + 1,
+                        subNodes: FamilyGraphData(
+                            centerPerson: parent,
+                            parents: [], children: [], spouses: [], siblings: []
                         )
-                        let node = FamilyGraphData.RelationNode(
-                            person: parent,
-                            relationType: parent.gender == Person.Gender.male ? .father : .mother,
-                            level: level + 1,
-                            subNodes: subNodes
+                    )
+                    parentNodes.append(node)
+                    nodeMap[parent.id] = node
+                    
+                    // 将父母加入队列继续处理
+                    queue.append(QueueItem(person: parent, level: current.level + 1, parentNode: node))
+                }
+                
+                // 处理子女
+                for child in relations.children {
+                    let node = FamilyGraphData.RelationNode(
+                        person: child,
+                        relationType: .child,
+                        level: current.level + 1,
+                        subNodes: FamilyGraphData(
+                            centerPerson: child,
+                            parents: [], children: [], spouses: [], siblings: []
                         )
-                        parentNodes.append(node)
-                    }
+                    )
+                    childrenNodes.append(node)
+                    nodeMap[child.id] = node
+                    
+                    // 将子女加入队列继续处理
+                    queue.append(QueueItem(person: child, level: current.level + 1, parentNode: node))
+                }
+                
+                // 处理配偶和兄弟姐妹（这些关系不需要递归处理）
+                spouseNodes = relations.spouses.map {
+                    FamilyGraphData.RelationNode(
+                        person: $0,
+                        relationType: .spouse,
+                        level: current.level,
+                        subNodes: FamilyGraphData(
+                            centerPerson: $0,
+                            parents: [], children: [], spouses: [], siblings: []
+                        )
+                    )
+                }
+                
+                siblingNodes = relations.siblings.map {
+                    FamilyGraphData.RelationNode(
+                        person: $0,
+                        relationType: $0.gender == .male ? .brother : .sister,
+                        level: current.level,
+                        subNodes: FamilyGraphData(
+                            centerPerson: $0,
+                            parents: [], children: [], spouses: [], siblings: []
+                        )
+                    )
                 }
             }
             
-            // 添加配偶节点（不受 processedPeople 限制）
-            for spouse in spouses {
-                var spouseProcessed = processedPeople
-                let subNodes = createGraphDataInternal(
-                    for: spouse,
-                    level: level + 1,
-                    maxDepth: maxDepth,
-                    processedPeople: &spouseProcessed
-                )
-                let node = FamilyGraphData.RelationNode(
-                    person: spouse,
-                    relationType: .spouse,
-                    level: level,
-                    subNodes: subNodes
-                )
-                spouseNodes.append(node)
-            }
+            // 更新节点的关系数据
+            let currentNode = FamilyGraphData(
+                centerPerson: current.person,
+                parents: parentNodes,
+                children: childrenNodes,
+                spouses: spouseNodes,
+                siblings: siblingNodes
+            )
             
-            // 添加子女节点（不受 processedPeople 限制）
-            for child in children {
-                var childProcessed = processedPeople
-                let subNodes = createGraphDataInternal(
-                    for: child,
-                    level: level + 1,
-                    maxDepth: maxDepth,
-                    processedPeople: &childProcessed
-                )
-                let node = FamilyGraphData.RelationNode(
-                    person: child,
-                    relationType: .child,
-                    level: level + 1,
-                    subNodes: subNodes
-                )
-                childrenNodes.append(node)
-            }
-            
-            // 标记当前人物已处理
-            processedPeople.insert(person.id)
-        }
-        
-        // 添加兄弟姐妹节点
-        for sibling in (brothers + sisters) {
-            if !processedPeople.contains(sibling.id) {
-                let subNodes = createGraphDataInternal(
-                    for: sibling,
-                    level: level + 1,
-                    maxDepth: maxDepth,
-                    processedPeople: &processedPeople
-                )
-                let node = FamilyGraphData.RelationNode(
-                    person: sibling,
-                    relationType: sibling.gender == Person.Gender.male ? .brother : .sister,
-                    level: level,
-                    subNodes: subNodes
-                )
-                siblingNodes.append(node)
+            // 如果有父节点，更新父节点的子节点数据
+            if let parentNode = current.parentNode {
+                nodeMap[parentNode.person.id]?.subNodes = currentNode
             }
         }
         
-        // 返回构建好的家谱数据
+        // 返回根节点的数据
         return FamilyGraphData(
             centerPerson: person,
-            parents: parentNodes,
-            children: childrenNodes,
-            spouses: spouseNodes,
-            siblings: siblingNodes
+            parents: nodeMap.values.filter { $0.relationType == .father || $0.relationType == .mother },
+            children: nodeMap.values.filter { $0.relationType == .child },
+            spouses: nodeMap.values.filter { $0.relationType == .spouse },
+            siblings: nodeMap.values.filter { $0.relationType == .brother || $0.relationType == .sister }
+        )
+    }
+    
+    // 辅助方法：获取人物的所有关系
+    private struct PersonRelations {
+        let parents: [Person]
+        let children: [Person]
+        let spouses: [Person]
+        let siblings: [Person]
+    }
+    
+    private func getPersonRelations(_ person: Person) -> PersonRelations {
+        let safeRelationships = self.relationships
+        let safePersons = self.persons
+        
+        // 获取父母
+        let fatherIds = safeRelationships
+            .filter { $0.fromPerson == person.id && $0.type == .father }
+            .map { $0.toPerson }
+        let fathers = safePersons.filter { fatherIds.contains($0.id) && $0.gender == .male }
+        
+        let motherIds = safeRelationships
+            .filter { $0.fromPerson == person.id && $0.type == .mother }
+            .map { $0.toPerson }
+        let mothers = safePersons.filter { motherIds.contains($0.id) && $0.gender == .female }
+        
+        // 获取子女
+        let childrenIds = safeRelationships
+            .filter { $0.toPerson == person.id && ($0.type == .father || $0.type == .mother) }
+            .map { $0.fromPerson }
+        let children = safePersons.filter { childrenIds.contains($0.id) }
+        
+        // 获取配偶
+        let spouseIds = safeRelationships
+            .filter { ($0.fromPerson == person.id || $0.toPerson == person.id) && $0.type == .spouse }
+            .map { $0.fromPerson == person.id ? $0.toPerson : $0.fromPerson }
+        let spouses = safePersons.filter { spouseIds.contains($0.id) }
+        
+        // 获取兄弟姐妹
+        var siblingIds = Set<UUID>()
+        for parentId in (fatherIds + motherIds) {
+            let siblingRelations = safeRelationships
+                .filter { $0.toPerson == parentId && ($0.type == .father || $0.type == .mother) }
+                .map { $0.fromPerson }
+            siblingIds.formUnion(siblingRelations)
+        }
+        siblingIds.remove(person.id)
+        let siblings = safePersons.filter { siblingIds.contains($0.id) }
+        
+        return PersonRelations(
+            parents: fathers + mothers,
+            children: children,
+            spouses: spouses,
+            siblings: siblings
         )
     }
     

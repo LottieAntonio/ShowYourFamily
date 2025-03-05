@@ -82,7 +82,7 @@ struct SiblingsRow: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             withAnimation(.flyTransition) {
                 transitionOffset = .zero
-                appViewModel.personManager.selectedPerson = person
+                appViewModel.getStateManager().selectPerson(person)  // 添加这行
                 showingPersonCard = false
                 isTransitioning = false
             }

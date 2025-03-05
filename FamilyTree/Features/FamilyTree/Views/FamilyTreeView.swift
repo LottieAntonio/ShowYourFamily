@@ -18,6 +18,7 @@ struct FamilyTreeView: View {
     @StateObject private var viewModel: FamilyTreeViewModel
     @StateObject private var personManager: PersonManagementViewModel
    
+    // 修改初始化方法，使用 @EnvironmentObject 的方式
     init() {
         // 使用临时的空 StateManager 初始化，实际的 StateManager 会通过 appViewModel 获取
         let tempStateManager = StateManager(dataManager: LocalDataManager())
@@ -75,7 +76,10 @@ struct FamilyTreeView: View {
             personManager.updateStateManager(appViewModel.getStateManager())
             
             Task {
-                await appViewModel.refreshData()
+                // 确保数据已经加载完成
+                if appViewModel.persons.isEmpty {
+                    await appViewModel.refreshData()
+                }
                 await setSelfPersonAsSelected()
             }
         }

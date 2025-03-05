@@ -132,16 +132,32 @@ class PersonCardViewModel: ObservableObject {
                 // 根据关系类型调整关系方向
                 switch relationType {
                 case .father, .mother:
+                    // 根据新人物的性别确定正确的关系类型
+                    let correctRelationType: RelationType
+                    if newPerson.gender == .male {
+                        correctRelationType = .father
+                    } else {
+                        correctRelationType = .mother
+                    }
+                    
                     // 如果是添加父母，则目标人物是子女，新人物是父母
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
-                        type: relationType,
+                        type: .child,  // 子女关系
                         fromPerson: targetPerson.id,
                         toPerson: newPerson.id
                     ))
                     
+                    // 添加反向关系（父亲或母亲）
+                    try await stateManager.addRelationship(Relationship(
+                        id: UUID(),
+                        type: correctRelationType,  // 使用正确的父/母关系类型
+                        fromPerson: newPerson.id,
+                        toPerson: targetPerson.id
+                    ))
+                    
                     // 检查是否存在另一个父母，如果存在则添加配偶关系
-                    let otherParentType: RelationType = relationType == .father ? .mother : .father
+                    let otherParentType: RelationType = correctRelationType == .father ? .mother : .father
                     if let otherParent = stateManager.getRelatedPersons(for: targetPerson, relationType: otherParentType).first {
                         // 添加配偶关系
                         try await stateManager.addRelationship(Relationship(
@@ -150,25 +166,56 @@ class PersonCardViewModel: ObservableObject {
                             fromPerson: newPerson.id,
                             toPerson: otherParent.id
                         ))
+                        
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: .spouse,
+                            fromPerson: otherParent.id,
+                            toPerson: newPerson.id
+                        ))
                     }
                     
                 case .child:
                     // 如果是添加子女，则目标人物是父母，新人物是子女
+                    // 根据目标人物的性别确定正确的父母关系类型
+                    let parentRelationType: RelationType = targetPerson.gender == .male ? .father : .mother
+                    
+                    // 添加子女关系
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
-                        type: relationType,
+                        type: .child,
                         fromPerson: newPerson.id,
                         toPerson: targetPerson.id
+                    ))
+                    
+                    // 添加反向关系（父亲或母亲）
+                    try await stateManager.addRelationship(Relationship(
+                        id: UUID(),
+                        type: parentRelationType,
+                        fromPerson: targetPerson.id,
+                        toPerson: newPerson.id
                     ))
                     
                     // 如果目标人物有配偶，也添加子女关系
                     let spouses = stateManager.getRelatedPersons(for: targetPerson, relationType: .spouse)
                     for spouse in spouses {
+                        // 根据配偶的性别确定正确的父母关系类型
+                        let spouseRelationType: RelationType = spouse.gender == .male ? .father : .mother
+                        
+                        // 添加子女关系
                         try await stateManager.addRelationship(Relationship(
                             id: UUID(),
-                            type: relationType,
+                            type: .child,
                             fromPerson: newPerson.id,
                             toPerson: spouse.id
+                        ))
+                        
+                        // 添加反向关系（父亲或母亲）
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: spouseRelationType,
+                            fromPerson: spouse.id,
+                            toPerson: newPerson.id
                         ))
                     }
                     
@@ -181,36 +228,89 @@ class PersonCardViewModel: ObservableObject {
                         toPerson: targetPerson.id
                     ))
                     
+                    try await stateManager.addRelationship(Relationship(
+                        id: UUID(),
+                        type: .spouse,
+                        fromPerson: targetPerson.id,
+                        toPerson: newPerson.id
+                    ))
+                    
                     // 如果对方有子女，将新人物也设置为这些子女的父母
                     let children = stateManager.getRelatedPersons(for: targetPerson, relationType: .child)
                     for child in children {
+                        // 根据新人物的性别确定正确的父母关系类型
+                        let parentRelationType: RelationType = newPerson.gender == .male ? .father : .mother
+                        
                         try await stateManager.addRelationship(Relationship(
                             id: UUID(),
-                            type: newPerson.gender == .male ? .father : .mother,
+                            type: .child,
                             fromPerson: child.id,
                             toPerson: newPerson.id
+                        ))
+                        
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: parentRelationType,
+                            fromPerson: newPerson.id,
+                            toPerson: child.id
                         ))
                     }
                     
                 case .brother, .sister:
-                    // 兄弟姐妹关系
+                    // 根据新人物的性别确定正确的兄弟姐妹关系类型
+                    let siblingRelationType: RelationType = newPerson.gender == .male ? .brother : .sister
+                    let targetSiblingRelationType: RelationType = targetPerson.gender == .male ? .brother : .sister
+                    
+                    // 添加兄弟姐妹关系（双向）
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
-                        type: relationType,
+                        type: siblingRelationType,
+                        fromPerson: targetPerson.id,
+                        toPerson: newPerson.id
+                    ))
+                    
+                    try await stateManager.addRelationship(Relationship(
+                        id: UUID(),
+                        type: targetSiblingRelationType,
                         fromPerson: newPerson.id,
                         toPerson: targetPerson.id
                     ))
                     
                     // 获取目标人物的父母，将新人物也设置为其子女
-                    let parents = stateManager.getRelatedPersons(for: targetPerson, relationType: .father) + 
-                                  stateManager.getRelatedPersons(for: targetPerson, relationType: .mother)
+                    let fathers = stateManager.getRelatedPersons(for: targetPerson, relationType: .father)
+                    let mothers = stateManager.getRelatedPersons(for: targetPerson, relationType: .mother)
                     
-                    for parent in parents {
+                    // 处理父亲关系
+                    for father in fathers {
                         try await stateManager.addRelationship(Relationship(
                             id: UUID(),
-                            type: parent.gender == .male ? .father : .mother,
+                            type: .child,
                             fromPerson: newPerson.id,
-                            toPerson: parent.id
+                            toPerson: father.id
+                        ))
+                        
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: .father,
+                            fromPerson: father.id,
+                            toPerson: newPerson.id
+                        ))
+                    }
+                    
+                    // 处理母亲关系
+                    for mother in mothers {
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: .child,
+                            fromPerson: newPerson.id,
+                            toPerson: mother.id
+                        ))
+                        
+                        try await stateManager.addRelationship(Relationship(
+                            id: UUID(),
+                            type: .mother,
+                            fromPerson: mother.id,
+                            toPerson: newPerson.id
                         ))
                     }
                 }
