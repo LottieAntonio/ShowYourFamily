@@ -134,7 +134,6 @@ class LocalDataManager: DataManaging {
     
     // 加载所有家谱
     func loadFamilies() async throws -> [Family] {
-        print("\n=== loadFamilies 开始执行 ===")
         
         // 检查文件状态
         let familiesUrl = FileManager.documentsDirectory.appendingPathComponent(familiesFileName)

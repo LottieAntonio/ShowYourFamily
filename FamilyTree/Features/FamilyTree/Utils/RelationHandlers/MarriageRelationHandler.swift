@@ -2,123 +2,115 @@ import Foundation
 
 class MarriageRelationHandler: BaseRelationHandler {
     func findMarriageTitle(from source: Person, to target: Person) -> String? {
-        guard source.id != target.id else { return nil }
+        // 查找配偶的父母称谓
+        if let inLawTitle = findInLawTitle(from: source, to: target) {
+            return inLawTitle
+        }
         
-        // 1. 检查目标是否是兄弟姐妹的配偶
-        let siblingRelations = findRelations(from: source.id, ofType: .brother) + 
-                             findRelations(from: source.id, ofType: .sister)
+        // 查找子女的配偶称谓
+        if let childSpouseTitle = findChildSpouseTitle(from: source, to: target) {
+            return childSpouseTitle
+        }
         
-        // 先获取所有兄弟姐妹的ID
-        var siblingIds = Set<UUID>()
-        for relation in siblingRelations {
-            if let siblingId = getOtherPerson(in: relation, from: source.id) {
-                siblingIds.insert(siblingId)
+        // 查找兄弟姐妹的配偶称谓
+        if let siblingSpouseTitle = findSiblingSpouseTitle(from: source, to: target) {
+            return siblingSpouseTitle
+        }
+        
+        // 查找叔伯姑姨的配偶称谓
+        if let uncleAuntSpouseTitle = findUncleAuntSpouseTitle(from: source, to: target) {
+            return uncleAuntSpouseTitle
+        }
+        
+        return nil
+    }
+    
+    // 查找配偶的父母称谓
+    private func findInLawTitle(from source: Person, to target: Person) -> String? {
+        // 获取配偶
+        let spouses = getSpouses(source.id)
+        
+        for spouse in spouses {
+            // 检查配偶的父母
+            if let spouseFather = getFather(spouse.id), spouseFather.id == target.id {
+                return spouse.gender == .female ? 
+                    RelationshipTitleMapper.getWifeParentTitle(gender: .male) : 
+                    RelationshipTitleMapper.getHusbandParentTitle(gender: .male)
+            }
+            
+            if let spouseMother = getMother(spouse.id), spouseMother.id == target.id {
+                return spouse.gender == .female ? 
+                    RelationshipTitleMapper.getWifeParentTitle(gender: .female) : 
+                    RelationshipTitleMapper.getHusbandParentTitle(gender: .female)
             }
         }
         
-        // 检查目标是否是兄弟姐妹的配偶
-        for siblingId in siblingIds {
-            let spouses = relationships.filter { relation in
-                (relation.fromPerson == siblingId || relation.toPerson == siblingId) &&
-                relation.type == .spouse
+        return nil
+    }
+    
+    // 查找子女的配偶称谓
+    private func findChildSpouseTitle(from source: Person, to target: Person) -> String? {
+        // 获取子女
+        let children = getChildren(source.id)
+        
+        for child in children {
+            // 检查子女的配偶
+            let childSpouses = getSpouses(child.id)
+            if childSpouses.contains(where: { $0.id == target.id }) {
+                return RelationshipTitleMapper.getChildSpouseTitle(gender: target.gender)
             }
-            
-            for spouseRelation in spouses {
-                if let spouseId = getOtherPerson(in: spouseRelation, from: siblingId),
-                   spouseId == target.id {
-                    let sibling = persons.first { $0.id == siblingId }
-                    if let sibling = sibling,
-                       let isOlder = isOlder(sibling, than: source) {
-                        if sibling.gender == .male {
-                            return isOlder ? "嫂子" : "弟妹"
-                        } else {
-                            return isOlder ? "姐夫" : "妹夫"
-                        }
-                    }
+        }
+        
+        return nil
+    }
+    
+    // 查找兄弟姐妹的配偶称谓
+    private func findSiblingSpouseTitle(from source: Person, to target: Person) -> String? {
+        // 获取兄弟姐妹
+        let siblings = getSiblings(source.id)
+        
+        for sibling in siblings {
+            // 检查兄弟姐妹的配偶
+            let siblingSpouses = getSpouses(sibling.id)
+            if siblingSpouses.contains(where: { $0.id == target.id }) {
+                if sibling.gender == .male {
+                    // 兄弟的妻子
+                    let isOlder = isOlder(sibling, than: source) ?? false
+                    return RelationshipTitleMapper.getBrotherWifeTitle(isOlder: isOlder)
+                } else {
+                    // 姐妹的丈夫
+                    let isOlder = isOlder(sibling, than: source) ?? false
+                    return RelationshipTitleMapper.getSisterHusbandTitle(isOlder: isOlder)
                 }
             }
         }
         
-        // 2. 检查配偶相关的称谓
-        let spouseRelations = findRelations(from: source.id, ofType: .spouse)
-        guard !spouseRelations.isEmpty else { return nil }
+        return nil
+    }
+    
+    // 查找叔伯姑姨的配偶称谓
+    private func findUncleAuntSpouseTitle(from source: Person, to target: Person) -> String? {
+        // 获取叔伯姑姨
+        let unclesAunts = getUnclesAunts(source.id)
         
-        for spouseRelation in spouseRelations {
-            guard let spouseId = getOtherPerson(in: spouseRelation, from: source.id) else { continue }
-            
-            // 目标是配偶的父母，只检查亲生父母关系
-            let spouseParents = relationships.filter { relation in
-                (relation.fromPerson == target.id && relation.toPerson == spouseId && relation.type == .child) ||
-                (relation.fromPerson == spouseId && relation.toPerson == target.id && 
-                 (relation.type == .father || relation.type == .mother))
-            }
-            
-            for parentRelation in spouseParents {
-                if let parentId = getOtherPerson(in: parentRelation, from: spouseId),
-                   parentId == target.id {
-                    if source.gender == .male {
-                        return target.gender == .male ? "岳父" : "岳母"
-                    } else {
-                        return target.gender == .male ? "公公" : "婆婆"
+        for uncleAunt in unclesAunts {
+            // 检查叔伯姑姨的配偶
+            let spouses = getSpouses(uncleAunt.id)
+            if spouses.contains(where: { $0.id == target.id }) {
+                // 确定是父系还是母系
+                if let father = getFather(source.id) {
+                    let fatherSiblings = getSiblings(father.id)
+                    if fatherSiblings.contains(where: { $0.id == uncleAunt.id }) {
+                        // 父亲的兄弟姐妹的配偶
+                        return RelationshipTitleMapper.getFatherSiblingSpouseTitle(siblingGender: uncleAunt.gender)
                     }
                 }
-            }
-            
-            // 目标是配偶的兄弟姐妹
-            let spouseParentRelations = relationships.filter { relation in
-                (relation.fromPerson == spouseId && relation.type == .child) ||
-                (relation.toPerson == spouseId && (relation.type == .father || relation.type == .mother))
-            }
-            
-            // 2. 通过父母找到所有子女（即配偶的兄弟姐妹）
-            for parentRelation in spouseParentRelations {
-                if getOtherPerson(in: parentRelation, from: spouseId) != nil {
-                    let siblingInfo = getSiblingInfo([parentRelation])
-                    
-                    // 检查父方兄弟姐妹
-                    for (_, children) in siblingInfo.fatherChildren {
-                        for childId in children {
-                            if childId != spouseId && childId == target.id {
-                                if let isOlder = isOlder(target, than: source) {
-                                    if source.gender == .male {
-                                        if target.gender == .male {
-                                            return isOlder ? "大舅子" : "小舅子"
-                                        } else {
-                                            return isOlder ? "大姨子" : "小姨子"
-                                        }
-                                    } else {
-                                        if target.gender == .male {
-                                            return isOlder ? "大叔子" : "小叔子"
-                                        } else {
-                                            return isOlder ? "大姑子" : "小姑子"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 检查母方兄弟姐妹
-                    for (_, children) in siblingInfo.motherChildren {
-                        for childId in children {
-                            if childId != spouseId && childId == target.id {
-                                if let isOlder = isOlder(target, than: source) {
-                                    if source.gender == .male {
-                                        if target.gender == .male {
-                                            return isOlder ? "大舅子" : "小舅子"
-                                        } else {
-                                            return isOlder ? "大姨子" : "小姨子"
-                                        }
-                                    } else {
-                                        if target.gender == .male {
-                                            return isOlder ? "大叔子" : "小叔子"
-                                        } else {
-                                            return isOlder ? "大姑子" : "小姑子"
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                
+                if let mother = getMother(source.id) {
+                    let motherSiblings = getSiblings(mother.id)
+                    if motherSiblings.contains(where: { $0.id == uncleAunt.id }) {
+                        // 母亲的兄弟姐妹的配偶
+                        return RelationshipTitleMapper.getMotherSiblingSpouseTitle(siblingGender: uncleAunt.gender)
                     }
                 }
             }

@@ -31,7 +31,6 @@ class FamilyAppViewModel: ObservableObject {
     
     // 改为公开初始化方法
     init(dataManager: DataManaging = DataManager.shared) {
-        print("📱 FamilyAppViewModel - 初始化开始")
         self.dataManager = dataManager
         self.stateManager = StateManager(dataManager: dataManager)
         
@@ -53,7 +52,6 @@ class FamilyAppViewModel: ObservableObject {
         self.familyManager.setAppViewModel(self)
         self.membersViewModel.updateAppViewModel(self)
         
-        print("📱 FamilyAppViewModel - 初始化完成")
     }
     
     private func setupBindings() {
@@ -109,7 +107,6 @@ class FamilyAppViewModel: ObservableObject {
             // 等待基础数据加载完成
             try await (familyTreeTask, personManagerTask)
             
-            print("📊 视图数据刷新完成")
         } catch {
             print("❌ 数据刷新失败：\(error.localizedDescription)")
             errorMessage = "数据刷新失败：\(error.localizedDescription)"

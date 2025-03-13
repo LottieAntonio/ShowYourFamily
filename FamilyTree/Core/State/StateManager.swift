@@ -8,7 +8,6 @@ class StateManager: ObservableObject {
     private let instanceId = UUID().uuidString.prefix(8)  // 添加实例标识符
     
     init(dataManager: DataManaging) {
-        print("🔧 StateManager[\(instanceId)] - 初始化")
         self.dataManager = dataManager
         self.state = AppState()
     }
@@ -18,26 +17,21 @@ class StateManager: ObservableObject {
     func loadInitialData() async {
         // 防止重复加载
         if state.isInitialized && !state.families.isEmpty {
-            print("🔧 StateManager[\(instanceId)] - 数据已初始化，跳过重复加载")
             return
         }
         
-        print("🔧 StateManager[\(instanceId)] - loadInitialData 开始执行 ===")
         
         // 使用 withLoading 方法包装加载逻辑
         await withLoading {
             do {
                 // 加载家谱列表
-                print("🔧 StateManager[\(instanceId)] - 开始加载家谱列表")
                 let families = try await dataManager.loadFamilies()
-                print("🔧 StateManager[\(instanceId)] - 加载到 \(families.count) 个家谱")
                 
                 await MainActor.run {
                     state.families = families
                     
                     // 如果有默认家谱，自动选择
                     if let defaultFamily = families.first(where: { $0.isDefault }) {
-                        print("🔧 StateManager[\(instanceId)] - 自动选择默认家谱: \(defaultFamily.name)")
                         state.currentFamily = defaultFamily
                     }
                     
@@ -46,25 +40,21 @@ class StateManager: ObservableObject {
                 
                 // 如果有当前家谱，加载其数据
                 if let currentFamily = state.currentFamily {
-                    print("🔧 StateManager[\(instanceId)] - 开始加载当前家谱数据: \(currentFamily.name)")
                     try await loadFamilyData(family: currentFamily)
                 }
             } catch {
                 await MainActor.run {
                     state.error = error
-                    print("❌ StateManager[\(instanceId)] - 加载初始数据失败：\(error.localizedDescription)")
                 }
             }
         }
         
-        print("🔧 StateManager[\(instanceId)] - loadInitialData 执行结束 ===")
     }
     
     // 添加一个辅助方法来处理加载状态
     private func withLoading<T>(_ operation: () async throws -> T) async rethrows -> T {
         // 设置加载状态
         await MainActor.run {
-            print("🔧 StateManager[\(instanceId)] - 设置加载状态: true")
             state.isLoading = true
         }
         
@@ -74,7 +64,6 @@ class StateManager: ObservableObject {
             
             // 清除加载状态
             await MainActor.run {
-                print("🔧 StateManager[\(instanceId)] - 设置加载状态: false (成功)")
                 state.isLoading = false
             }
             
@@ -82,7 +71,6 @@ class StateManager: ObservableObject {
         } catch {
             // 发生错误时也清除加载状态
             await MainActor.run {
-                print("🔧 StateManager[\(instanceId)] - 设置加载状态: false (错误)")
                 state.isLoading = false
             }
             throw error
@@ -90,15 +78,12 @@ class StateManager: ObservableObject {
     }
     
     private func loadFamilyData(family: Family) async throws {
-        print("🔧 StateManager[\(instanceId)] - loadFamilyData 开始: \(family.name)")
         
         // 加载家谱成员
         let persons = try await dataManager.loadPersons(familyId: family.id)
-        print("🔧 StateManager[\(instanceId)] - 加载到 \(persons.count) 个成员")
         
         // 加载关系数据
         let relationships = try await dataManager.loadRelationships(familyId: family.id)
-        print("🔧 StateManager[\(instanceId)] - 加载到 \(relationships.count) 个关系")
         
         await MainActor.run {
             state.persons = persons
@@ -107,51 +92,42 @@ class StateManager: ObservableObject {
             // 如果没有选中的人物，选择第一个
             if state.selectedPerson == nil {
                 if let firstPerson = persons.first {
-                    print("🔧 StateManager[\(instanceId)] - 自动选择第一个人物: \(firstPerson.name)")
                     state.selectedPerson = firstPerson
                 }
             }
         }
         
-        print("🔧 StateManager[\(instanceId)] - loadFamilyData 完成: \(family.name)")
     }
     
     // MARK: - 家谱操作
     
     func selectFamily(_ family: Family) async {
-        print("🔧 StateManager[\(instanceId)] - selectFamily: \(family.name), ID: \(family.id)")
         
         guard family.id != state.currentFamily?.id else {
-            print("🔧 StateManager[\(instanceId)] - 已经是当前家谱，跳过")
             return
         }
         
         await withLoading {
-            print("🔧 StateManager[\(instanceId)] - 切换到新家谱: \(family.name)")
             state.currentFamily = family
             state.persons = []
             state.relationships = []
             state.selectedPerson = nil
             
             do {
-                print("🔧 StateManager[\(instanceId)] - 开始加载新家谱数据")
                 try await loadFamilyData(family: family)
             } catch {
                 state.error = error
-                print("❌ StateManager[\(instanceId)] - 加载家谱数据失败：\(error.localizedDescription)")
             }
         }
     }
     
     // 设置当前家谱
     func setCurrentFamily(_ family: Family) async {
-        print("🔧 StateManager[\(instanceId)] - setCurrentFamily: \(family.name)")
         await selectFamily(family)
     }
     
     // 添加新家谱
     func addFamily(_ family: Family) async throws {
-        print("🔧 StateManager[\(instanceId)] - addFamily: \(family.name)")
         try await dataManager.saveFamily(family)
         await MainActor.run {
             state.families.append(family)
@@ -160,11 +136,9 @@ class StateManager: ObservableObject {
     
     // 从默认家谱创建新家谱
     func createFamilyFromDefault(name: String, description: String) async throws {
-        print("🔧 StateManager[\(instanceId)] - createFamilyFromDefault: \(name)")
         
         // 查找默认家谱
         guard let defaultFamily = state.families.first(where: { $0.isDefault }) else {
-            print("❌ StateManager[\(instanceId)] - 未找到默认家谱")
             throw FamilyError.defaultFamilyNotFound
         }
         
@@ -180,12 +154,10 @@ class StateManager: ObservableObject {
         try await addFamily(newFamily)
         
         // 加载默认家谱的数据
-        print("🔧 StateManager[\(instanceId)] - 加载默认家谱数据用于复制")
         let defaultPersons = try await dataManager.loadPersons(familyId: defaultFamily.id)
         let defaultRelationships = try await dataManager.loadRelationships(familyId: defaultFamily.id)
         
         // 复制人物和关系到新家谱
-        print("🔧 StateManager[\(instanceId)] - 复制 \(defaultPersons.count) 个人物到新家谱")
         for person in defaultPersons {
             let newPerson = Person(
                 id: UUID(),
@@ -199,7 +171,6 @@ class StateManager: ObservableObject {
         }
         
         // 设置为当前家谱
-        print("🔧 StateManager[\(instanceId)] - 设置新家谱为当前家谱")
         await setCurrentFamily(newFamily)
     }
     
@@ -262,7 +233,6 @@ class StateManager: ObservableObject {
     func getRelatedPersons(for person: Person, relationType: RelationType) -> [Person] {
         // 防御性检查：确保传入的 person 是有效的
         guard person.id != UUID() else {
-            print("⚠️ StateManager[\(instanceId)] - 传入的人物ID无效")
             return []
         }
         
@@ -414,7 +384,6 @@ class StateManager: ObservableObject {
     
     // 修改更新加载状态的方法
     func updateLoadingState(_ isLoading: Bool) {
-        print("🔧 StateManager[\(instanceId)] - 手动设置加载状态: \(isLoading)")
         state.isLoading = isLoading
     }
 }

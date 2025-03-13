@@ -105,11 +105,9 @@ class FamilyTreeViewModel: ObservableObject {
         loadDataTask?.cancel()
         
         guard let currentFamily = stateManager.state.currentFamily else {
-            print("⚠️ 未选择当前家谱")
             throw FamilyError.noCurrentFamily
         }
         
-        print("🔄 开始加载家谱数据：\(currentFamily.name)")
         isLoading = true
         defer { isLoading = false }
         
@@ -133,9 +131,7 @@ class FamilyTreeViewModel: ObservableObject {
                 self.relationships = stateManager.state.relationships
                 self.personsDict = Dictionary(uniqueKeysWithValues: persons.map { ($0.id, $0) })
                 self.relationshipsDict = Dictionary(uniqueKeysWithValues: relationships.map { ($0.id, $0) })
-                print("✅ 加载完成[\(currentFamily.name)]：\(persons.count) 个成员，\(relationships.count) 个关系")
             } catch {
-                print("❌ 加载数据失败：\(error.localizedDescription)")
                 throw error
             }
         }

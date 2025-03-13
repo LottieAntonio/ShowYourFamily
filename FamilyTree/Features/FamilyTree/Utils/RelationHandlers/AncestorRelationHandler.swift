@@ -2,119 +2,187 @@ import Foundation
 
 class AncestorRelationHandler: BaseRelationHandler {
     func findAncestorTitle(from source: Person, to target: Person) -> String? {
-        let path = findRelationPath(from: source.id, to: target.id)
-        guard !path.isEmpty else { 
-            // 如果没有直接路径，尝试查找继祖父母关系
-            return findGrandparentSpouseTitle(from: source, to: target)
+        print("🔍 AncestorRelationHandler 开始查找关系: \(source.name) -> \(target.name)")
+        
+        // 查找祖父母称谓
+        if let grandparentTitle = findGrandparentTitle(from: source, to: target) {
+            print("👴👵 找到祖父母关系: \(grandparentTitle)")
+            return grandparentTitle
         }
         
-        var currentId = source.id
-        var generation = 0
-        var isPaternal = true
-        var foundFirstParent = false
-        
-        for relation in path {
-            if relation.fromPerson == currentId && (relation.type == .father || relation.type == .mother) {
-                if !foundFirstParent {
-                    foundFirstParent = true
-                    isPaternal = relation.type == .father
-                }
-                currentId = relation.toPerson
-                generation += 1
-            }
-            else if relation.toPerson == currentId && relation.type == .child {
-                if !foundFirstParent {
-                    foundFirstParent = true
-                    isPaternal = true
-                }
-                currentId = relation.fromPerson
-                generation += 1
-            }
+        // 查找曾祖父母称谓
+        if let greatGrandparentTitle = findGreatGrandparentTitle(from: source, to: target) {
+            print("👴👵 找到曾祖父母关系: \(greatGrandparentTitle)")
+            return greatGrandparentTitle
         }
         
-        guard currentId == target.id else { return nil }
+        // 查找叔伯姑姨称谓
+        if let uncleAuntTitle = findUncleAuntTitle(from: source, to: target) {
+            print("👨‍👩‍👧 找到叔伯姑姨关系: \(uncleAuntTitle)")
+            return uncleAuntTitle
+        }
         
-        switch generation {
-        case 2:
-            return target.gender == .male ? 
-                (isPaternal ? "爷爷" : "外公") :
-                (isPaternal ? "奶奶" : "外婆")
-        case 3:
-            if isPaternal {
-                // 父亲这边的祖父母
-                if let father = getFather(of: source),
-                   let fatherParentRelation = findRelations(from: father.id, ofType: .father)
-                        .first ?? findRelations(from: father.id, ofType: .mother).first,
-                   let fatherParentId = getOtherPerson(in: fatherParentRelation, from: father.id),
-                   fatherParentId == target.id {
-                    // 父亲的父母（曾祖父母）
-                    return target.gender == .male ? "曾祖父" : "曾祖母"
-                } else {
-                    // 父亲的外公外婆（曾外祖父母）
-                    return target.gender == .male ? "曾外祖父" : "曾外祖母"
+        print("❌ AncestorRelationHandler 未找到祖先关系")
+        return nil
+    }
+    
+    // 查找祖父母称谓
+    private func findGrandparentTitle(from source: Person, to target: Person) -> String? {
+        print("🔍 开始查找祖父母关系: \(source.name) -> \(target.name)")
+        
+        // 使用直接关系查询
+        let grandparents = getGrandparents(source.id)
+        
+        print("📊 找到祖父母数量: \(grandparents.count)")
+        for (index, gp) in grandparents.enumerated() {
+            print("  #\(index): \(gp.name) (ID=\(gp.id))")
+        }
+        
+        if grandparents.contains(where: { $0.id == target.id }) {
+            print("✅ 确认 \(target.name) 是 \(source.name) 的祖父母")
+            
+            // 确定是父系还是母系
+            if let father = getFather(source.id) {
+                print("👨 找到父亲: \(father.name)")
+                
+                if let fatherFather = getFather(father.id), fatherFather.id == target.id {
+                    print("👴 确认是父系祖父")
+                    return RelationshipTitleMapper.getPaternalGrandparentTitle(gender: .male)
+                }
+                
+                if let fatherMother = getMother(father.id), fatherMother.id == target.id {
+                    print("👵 确认是父系祖母")
+                    return RelationshipTitleMapper.getPaternalGrandparentTitle(gender: .female)
                 }
             } else {
-                // 母亲这边的祖父母
-                if let mother = getMother(of: source),
-                   let motherParentRelation = findRelations(from: mother.id, ofType: .father)
-                        .first ?? findRelations(from: mother.id, ofType: .mother).first,
-                   let motherParentId = getOtherPerson(in: motherParentRelation, from: mother.id),
-                   motherParentId == target.id {
-                    // 母亲的父母（外曾祖父母）
-                    return target.gender == .male ? "外曾祖父" : "外曾祖母"
-                } else {
-                    // 母亲的外公外婆（外曾外祖父母）
-                    return target.gender == .male ? "外曾外祖父" : "外曾外祖母"
+                print("❌ 未找到父亲")
+            }
+            
+            if let mother = getMother(source.id) {
+                print("👩 找到母亲: \(mother.name)")
+                
+                if let motherFather = getFather(mother.id), motherFather.id == target.id {
+                    print("👴 确认是母系祖父")
+                    return RelationshipTitleMapper.getMaternalGrandparentTitle(gender: .male)
+                }
+                
+                if let motherMother = getMother(mother.id), motherMother.id == target.id {
+                    print("👵 确认是母系祖母")
+                    return RelationshipTitleMapper.getMaternalGrandparentTitle(gender: .female)
+                }
+            } else {
+                print("❌ 未找到母亲")
+            }
+        } else {
+            print("❌ \(target.name) 不是 \(source.name) 的祖父母")
+        }
+        
+        return nil
+    }
+    
+    // 查找曾祖父母称谓
+    private func findGreatGrandparentTitle(from source: Person, to target: Person) -> String? {
+        // 父系曾祖父
+        if let father = getFather(source.id),
+           let grandfather = getFather(father.id),
+           let greatGrandfather = getFather(grandfather.id),
+           greatGrandfather.id == target.id {
+            return RelationshipTitleMapper.getPaternalGreatGrandparentTitle(gender: .male)
+        }
+        
+        // 父系曾祖母
+        if let father = getFather(source.id),
+           let grandfather = getFather(father.id),
+           let greatGrandmother = getMother(grandfather.id),
+           greatGrandmother.id == target.id {
+            return RelationshipTitleMapper.getPaternalGreatGrandparentTitle(gender: .female)
+        }
+        
+        // 父系曾祖父（通过奶奶）
+        if let father = getFather(source.id),
+           let grandmother = getMother(father.id),
+           let greatGrandfather = getFather(grandmother.id),
+           greatGrandfather.id == target.id {
+            return RelationshipTitleMapper.getPaternalGreatGrandparentTitle(gender: .male)
+        }
+        
+        // 父系曾祖母（通过奶奶）
+        if let father = getFather(source.id),
+           let grandmother = getMother(father.id),
+           let greatGrandmother = getMother(grandmother.id),
+           greatGrandmother.id == target.id {
+            return RelationshipTitleMapper.getPaternalGreatGrandparentTitle(gender: .female)
+        }
+        
+        // 母系曾祖父
+        if let mother = getMother(source.id),
+           let grandfather = getFather(mother.id),
+           let greatGrandfather = getFather(grandfather.id),
+           greatGrandfather.id == target.id {
+            return RelationshipTitleMapper.getMaternalGreatGrandparentTitle(gender: .male)
+        }
+        
+        // 母系曾祖母
+        if let mother = getMother(source.id),
+           let grandfather = getFather(mother.id),
+           let greatGrandmother = getMother(grandfather.id),
+           greatGrandmother.id == target.id {
+            return RelationshipTitleMapper.getMaternalGreatGrandparentTitle(gender: .female)
+        }
+        
+        // 母系曾祖父（通过外婆）
+        if let mother = getMother(source.id),
+           let grandmother = getMother(mother.id),
+           let greatGrandfather = getFather(grandmother.id),
+           greatGrandfather.id == target.id {
+            return RelationshipTitleMapper.getMaternalGreatGrandparentTitle(gender: .male)
+        }
+        
+        // 母系曾祖母（通过外婆）
+        if let mother = getMother(source.id),
+           let grandmother = getMother(mother.id),
+           let greatGrandmother = getMother(grandmother.id),
+           greatGrandmother.id == target.id {
+            return RelationshipTitleMapper.getMaternalGreatGrandparentTitle(gender: .female)
+        }
+        
+        return nil
+    }
+    
+    // 查找叔伯姑姨称谓
+    private func findUncleAuntTitle(from source: Person, to target: Person) -> String? {
+        // 获取所有叔伯姑姨
+        let unclesAunts = getUnclesAunts(source.id)
+        
+        if unclesAunts.contains(where: { $0.id == target.id }) {
+            // 确定是父系还是母系
+            if let father = getFather(source.id) {
+                let fatherSiblings = getSiblings(father.id)
+                if fatherSiblings.contains(where: { $0.id == target.id }) {
+                    // 父亲的兄弟姐妹
+                    if target.gender == .male {
+                        // 判断年龄关系
+                        let isOlder = isOlder(target, than: father) ?? false
+                        return RelationshipTitleMapper.getFatherBrotherTitle(isOlder: isOlder)
+                    } else if target.gender == .female {
+                        return RelationshipTitleMapper.getFatherSisterTitle()
+                    }
                 }
             }
-        case 4:
-            return target.gender == .male ? "高祖父" : "高祖母"
-        default:
-            if generation > 4 {
-                let prefix = String(repeating: "高", count: generation - 3)
-                return target.gender == .male ? "\(prefix)祖父" : "\(prefix)祖母"
-            }
-            return nil
-        }
-    }
-
-    private func findGrandparentSpouseTitle(from source: Person, to target: Person) -> String? {
-        let parents = findRelations(from: source.id, ofType: .father) + 
-                     findRelations(from: source.id, ofType: .mother)
-        
-        for parentRelation in parents {
-            if let parentId = getOtherPerson(in: parentRelation, from: source.id) {
-                // 先获取亲生祖父母
-                let grandparents = findRelations(from: parentId, ofType: .father) + 
-                                 findRelations(from: parentId, ofType: .mother)
-                
-                for grandparentRelation in grandparents {
-                    if let grandparentId = getOtherPerson(in: grandparentRelation, from: parentId) {
-                        // 确保这个祖父母不是目标人物（避免将亲生祖父母判断为继祖父母）
-                        guard grandparentId != target.id else { continue }
-                        
-                        // 只查找这个祖父母的配偶
-                        let spouses = relationships.filter { relation in
-                            (relation.fromPerson == grandparentId || relation.toPerson == grandparentId) &&
-                            relation.type == .spouse
-                        }
-                        
-                        for spouseRelation in spouses {
-                            if let spouseId = getOtherPerson(in: spouseRelation, from: grandparentId),
-                               spouseId == target.id {
-                                let isPaternal = parentRelation.type == .father
-                                
-                                if isPaternal {
-                                    return target.gender == .male ? "继祖父" : "继祖母"
-                                } else {
-                                    return target.gender == .male ? "继外祖父" : "继外祖母"
-                                }
-                            }
-                        }
+            
+            if let mother = getMother(source.id) {
+                let motherSiblings = getSiblings(mother.id)
+                if motherSiblings.contains(where: { $0.id == target.id }) {
+                    // 母亲的兄弟姐妹
+                    if target.gender == .male {
+                        return RelationshipTitleMapper.getMotherBrotherTitle()
+                    } else if target.gender == .female {
+                        return RelationshipTitleMapper.getMotherSisterTitle()
                     }
                 }
             }
         }
+        
         return nil
     }
 }

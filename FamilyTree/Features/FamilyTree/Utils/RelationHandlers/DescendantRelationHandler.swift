@@ -2,64 +2,79 @@ import Foundation
 
 class DescendantRelationHandler: BaseRelationHandler {
     func findDescendantTitle(from source: Person, to target: Person) -> String? {
-        // 获取关系路径
-        let path = findRelationPath(from: source.id, to: target.id)
-        guard !path.isEmpty else { return nil }
+        print("🔍 DescendantRelationHandler 开始查找关系: \(source.name) -> \(target.name)")
         
-        // 检查是否是父子关系路径
-        var currentId = source.id
-        var generationCount = 0
-        var throughDaughter = false
-        
-        for relation in path {
-            // 检查是否是从父到子的方向，或者从子到父的方向但类型是父母
-            if (relation.fromPerson == currentId && relation.type == .child) ||
-               (relation.toPerson == currentId && (relation.type == .father || relation.type == .mother)) {
-                // 获取子女
-                let childId = relation.fromPerson == currentId ? relation.toPerson : relation.fromPerson
-                // 检查子女性别
-                if let child = persons.first(where: { $0.id == childId }),
-                   child.gender == .female {
-                    throughDaughter = true
-                }
-                currentId = childId
-                generationCount += 1
-            } else {
-                return nil
-            }
+        // 查找孙子女称谓
+        if let grandchildTitle = findGrandchildTitle(from: source, to: target) {
+            print("👶 找到孙辈关系: \(grandchildTitle)")
+            return grandchildTitle
         }
         
-        // 确保最后一个人是目标人物
-        guard currentId == target.id else { return nil }
-        
-        // 处理直系晚辈
-        switch generationCount {
-        case 1:
-            return target.gender == .male ? "儿子" : "女儿"
-        case 2:
-            if throughDaughter {
-                return target.gender == .male ? "外孙" : "外孙女"
-            } else {
-                return target.gender == .male ? "孙子" : "孙女"
-            }
-        case 3:
-            if throughDaughter {
-                return target.gender == .male ? "曾外孙" : "曾外孙女"
-            } else {
-                return target.gender == .male ? "曾孙" : "曾孙女"
-            }
-        default:
-            if generationCount > 3 {
-                let prefix = String(repeating: "玄", count: generationCount - 3)
-                if throughDaughter {
-                    return target.gender == .male ? "\(prefix)外孙" : "\(prefix)外孙女"
-                } else {
-                    return target.gender == .male ? "\(prefix)孙" : "\(prefix)孙女"
-                }
-            }
-            return nil
+        // 查找曾孙子女称谓
+        if let greatGrandchildTitle = findGreatGrandchildTitle(from: source, to: target) {
+            print("👶 找到曾孙辈关系: \(greatGrandchildTitle)")
+            return greatGrandchildTitle
         }
+        
+        print("❌ DescendantRelationHandler 未找到后代关系")
+        return nil
     }
     
+    // 查找孙子女称谓
+    private func findGrandchildTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let grandchildren = getGrandchildren(source.id)
+        
+        // 打印调试信息
+        print("🔍 检查 \(target.name) 是否是 \(source.name) 的孙辈，找到孙辈数量: \(grandchildren.count)")
+        for grandchild in grandchildren {
+            print("👶 孙辈: \(grandchild.name)")
+        }
+        
+        if grandchildren.contains(where: { $0.id == target.id }) {
+            print("✅ 确认 \(target.name) 是 \(source.name) 的孙辈")
+            
+            // 确定是通过儿子还是女儿
+            let children = getChildren(source.id)
+            
+            for child in children {
+                let childChildren = getChildren(child.id)
+                if childChildren.contains(where: { $0.id == target.id }) {
+                    // 找到了中间的子女
+                    if child.gender == .male {
+                        // 通过儿子的子女
+                        return RelationshipTitleMapper.getPaternalGrandchildTitle(gender: target.gender)
+                    } else {
+                        // 通过女儿的子女
+                        return RelationshipTitleMapper.getMaternalGrandchildTitle(gender: target.gender)
+                    }
+                }
+            }
+            
+            // 如果无法确定中间关系，返回默认称谓
+            return target.gender == .male ? "孙子" : "孙女"
+        } else {
+            print("❌ \(target.name) 不是 \(source.name) 的孙辈")
+        }
+        
+        return nil
+    }
     
+    // 查找曾孙子女称谓
+    private func findGreatGrandchildTitle(from source: Person, to target: Person) -> String? {
+        // 检查是否是曾孙辈
+        let children = getChildren(source.id)
+        
+        for child in children {
+            let grandchildren = getGrandchildren(child.id)
+            if grandchildren.contains(where: { $0.id == target.id }) {
+                print("✅ 确认 \(target.name) 是 \(source.name) 的曾孙辈")
+                // 确定是否通过女儿
+                let isMaternal = child.gender == .female
+                return RelationshipTitleMapper.getGreatGrandchildTitle(gender: target.gender, isMaternal: isMaternal)
+            }
+        }
+        
+        return nil
+    }
 }

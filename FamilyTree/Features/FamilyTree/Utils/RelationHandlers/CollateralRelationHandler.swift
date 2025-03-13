@@ -2,191 +2,102 @@ import Foundation
 
 class CollateralRelationHandler: BaseRelationHandler {
     func findCollateralTitle(from source: Person, to target: Person) -> String? {
-        let path = findRelationPath(from: source.id, to: target.id)
-        guard !path.isEmpty else { return nil }
-        
-        // 检查是否存在亲生关系路径
-        let hasBloodRelation = path.allSatisfy { relation in
-            switch relation.type {
-            case .father, .mother, .child, .brother, .sister:
-                return true
-            default:
-                return false
-            }
+        // 查找堂表兄弟姐妹称谓
+        if let cousinTitle = findCousinTitle(from: source, to: target) {
+            return cousinTitle
         }
         
-        guard hasBloodRelation else { return nil }
-        
-        // 先检查是否是兄弟姐妹的子女
-        let siblingInfo = getSiblingInfo([])
-        let siblingRelations = findRelations(from: source.id, ofType: .brother) + 
-                             findRelations(from: source.id, ofType: .sister)
-        
-        // 获取所有兄弟姐妹的ID
-        var siblingIds = Set<UUID>()
-        for relation in siblingRelations {
-            if let siblingId = getOtherPerson(in: relation, from: source.id) {
-                siblingIds.insert(siblingId)
-            }
-        }
-        
-        // 检查目标是否是兄弟姐妹的子女
-        for (parentId, children) in siblingInfo.fatherChildren {
-            if siblingIds.contains(parentId) && children.contains(target.id) {
-                return findNephewTitle(from: source, to: target, isFromBrother: true)
-            }
-        }
-        for (parentId, children) in siblingInfo.motherChildren {
-            if siblingIds.contains(parentId) && children.contains(target.id) {
-                return findNephewTitle(from: source, to: target, isFromBrother: false)
-            }
-        }
-        
-        // 如果不是侄子侄女，再判断其他关系
-        let commonAncestorPath = findCommonAncestor(in: path)
-        let isPaternal = commonAncestorPath.first?.type == .father
-        let generationDiff = calculateGenerationDifference(in: path)
-        
-        if generationDiff == 0 {
-            if let isOlder = isOlder(target, than: source) {
-                if target.gender == .male {
-                    return isPaternal ? 
-                        (isOlder ? "堂兄" : "堂弟") :
-                        (isOlder ? "表兄" : "表弟")
-                } else {
-                    return isPaternal ?
-                        (isOlder ? "堂姐" : "堂妹") :
-                        (isOlder ? "表姐" : "表妹")
-                }
-            }
-        } else if generationDiff == 1 {
-            if isPaternal {
-                if target.gender == .male {
-                    if let father = getFather(of: source) {
-                        let siblingInfo = getSiblingInfo([])
-                        if validateSiblingRelation(source: father.id, target: target.id,
-                                                 fatherChildren: siblingInfo.fatherChildren,
-                                                 motherChildren: siblingInfo.motherChildren) {
-                            if let isOlderThanFather = isOlder(target, than: father) {
-                                return isOlderThanFather ? "伯父" : "叔父"
-                            }
-                            return "叔父"
-                        }
-                    }
-                } else {
-                    if let father = getFather(of: source) {
-                        let siblingInfo = getSiblingInfo([])
-                        if validateSiblingRelation(source: father.id, target: target.id,
-                                                 fatherChildren: siblingInfo.fatherChildren,
-                                                 motherChildren: siblingInfo.motherChildren) {
-                            return "姑妈"
-                        }
-                    }
-                }
-            } else {
-                if let mother = getMother(of: source) {
-                    let siblingInfo = getSiblingInfo([])
-                    if validateSiblingRelation(source: mother.id, target: target.id,
-                                             fatherChildren: siblingInfo.fatherChildren,
-                                             motherChildren: siblingInfo.motherChildren) {
-                        return target.gender == .male ? "舅舅" : "姨妈"
-                    }
-                }
-            }
+        // 查找侄子女/外甥称谓
+        if let nephewTitle = findNephewNieceTitle(from: source, to: target) {
+            return nephewTitle
         }
         
         return nil
     }
     
-
-    
-    private func findSiblingRelations(for personId: UUID) -> [Relationship] {
-        return relationships.filter { relation in
-            (relation.fromPerson == personId || relation.toPerson == personId) &&
-            (relation.type == .brother || relation.type == .sister)
-        }
-    }
-    
-    private func findCommonAncestor(in path: [Relationship]) -> [Relationship] {
-        var parentPath: [Relationship] = []
-        var foundBranch = false
-        var currentId: UUID?
+    // 查找堂表兄弟姐妹称谓
+    private func findCousinTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let cousins = getCousins(source.id)
         
-        for relation in path {
-            if currentId == nil {
-                currentId = relation.fromPerson
+        if cousins.contains(where: { $0.id == target.id }) {
+            // 确定是堂还是表
+            if let father = getFather(source.id) {
+                let fatherBrothers = getSiblings(father.id).filter { $0.gender == .male }
+                
+                for uncle in fatherBrothers {
+                    let uncleChildren = getChildren(uncle.id)
+                    if uncleChildren.contains(where: { $0.id == target.id }) {
+                        // 父亲的兄弟的子女 - 堂兄弟姐妹
+                        let isOlder = isOlder(target, than: source) ?? false
+                        return RelationshipTitleMapper.getPaternalCousinTitle(gender: target.gender, isOlder: isOlder)
+                    }
+                }
+                
+                let fatherSisters = getSiblings(father.id).filter { $0.gender == .female }
+                
+                for aunt in fatherSisters {
+                    let auntChildren = getChildren(aunt.id)
+                    if auntChildren.contains(where: { $0.id == target.id }) {
+                        // 父亲的姐妹的子女 - 表兄弟姐妹
+                        let isOlder = isOlder(target, than: source) ?? false
+                        return RelationshipTitleMapper.getMaternalCousinTitle(gender: target.gender, isOlder: isOlder)
+                    }
+                }
             }
             
-            if relation.type == .father || relation.type == .mother {
-                if !foundBranch && relation.fromPerson == currentId {
-                    parentPath.append(relation)
-                    currentId = relation.toPerson
-                }
-            } else if relation.type == .brother || relation.type == .sister {
-                foundBranch = true
-            } else if relation.type == .child {
-                foundBranch = true
-            }
-        }
-        
-        if parentPath.isEmpty {
-            currentId = nil
-            for relation in path.reversed() {
-                if currentId == nil {
-                    currentId = relation.toPerson
-                }
+            if let mother = getMother(source.id) {
+                let motherSiblings = getSiblings(mother.id)
                 
-                if (relation.type == .father || relation.type == .mother) && 
-                   relation.toPerson == currentId {
-                    parentPath.insert(relation, at: 0)
-                    currentId = relation.fromPerson
-                }
-            }
-        }
-        
-        return parentPath
-    }
-    
-    private func calculateGenerationDifference(in path: [Relationship]) -> Int {
-        var upCount = 0
-        var downCount = 0
-        var foundCommonAncestor = false
-        var commonAncestorId: UUID?
-        
-        for relation in path {
-            if relation.type == .father || relation.type == .mother {
-                if !foundCommonAncestor {
-                    upCount += 1
-                    commonAncestorId = relation.toPerson
-                }
-                
-                if relation.toPerson == commonAncestorId {
-                    foundCommonAncestor = true
-                }
-            } else if relation.type == .brother || relation.type == .sister {
-                foundCommonAncestor = true
-            }
-        }
-        
-        if foundCommonAncestor {
-            var targetPath = false
-            for relation in path.reversed() {
-                if relation.type == .father || relation.type == .mother {
-                    if relation.toPerson == commonAncestorId {
-                        targetPath = true
-                        continue
-                    }
-                    if targetPath {
-                        downCount += 1
+                for uncleAunt in motherSiblings {
+                    let uncleAuntChildren = getChildren(uncleAunt.id)
+                    if uncleAuntChildren.contains(where: { $0.id == target.id }) {
+                        // 母亲的兄弟姐妹的子女 - 表兄弟姐妹
+                        let isOlder = isOlder(target, than: source) ?? false
+                        return RelationshipTitleMapper.getMaternalCousinTitle(gender: target.gender, isOlder: isOlder)
                     }
                 }
             }
+            
+            // 如果无法确定具体关系，返回默认称谓
+            let isOlder = isOlder(target, than: source) ?? false
+            return target.gender == .male ? 
+                (isOlder ? "表哥" : "表弟") : 
+                (isOlder ? "表姐" : "表妹")
         }
         
-        return upCount - downCount
+        return nil
     }
     
-
+    // 查找侄子女/外甥称谓
+    private func findNephewNieceTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let nephewsNieces = getNephewsNieces(source.id)
+        
+        if nephewsNieces.contains(where: { $0.id == target.id }) {
+            // 确定是通过兄弟还是姐妹
+            let siblings = getSiblings(source.id)
+            
+            for sibling in siblings {
+                let siblingChildren = getChildren(sibling.id)
+                if siblingChildren.contains(where: { $0.id == target.id }) {
+                    // 找到了中间的兄弟姐妹
+                    if sibling.gender == .male {
+                        // 兄弟的子女 - 侄子女
+                        return RelationshipTitleMapper.getNephewNieceTitle(gender: target.gender)
+                    } else {
+                        // 姐妹的子女 - 外甥/外甥女
+                        return RelationshipTitleMapper.getMaternalNephewNieceTitle(gender: target.gender)
+                    }
+                }
+            }
+            
+            // 如果无法确定中间关系，返回默认称谓
+            return target.gender == .male ? "侄子/外甥" : "侄女/外甥女"
+        }
+        
+        return nil
+    }
 }
 
 

@@ -18,7 +18,7 @@ class PersonCardViewModel: ObservableObject {
     
     private let person: Person?
     private let stateManager: StateManager
-    private weak var appViewModel: FamilyAppViewModel?  // 添加对 FamilyAppViewModel 的引用
+    weak var appViewModel: FamilyAppViewModel?  // 改为公开属性
     private let relationshipManager: RelationshipManager
     let mode: PersonCardMode
     
@@ -45,19 +45,31 @@ class PersonCardViewModel: ObservableObject {
         
         // 触发异步更新
         Task { @MainActor in
-            if let title = relationshipManager.generateTitle(for: person) {
+            // 使用appViewModel而不是relationshipManager来生成称谓
+            if let appViewModel = appViewModel, let title = appViewModel.generateTitle(for: person) {
+                self.cachedTitle = title
+                self.objectWillChange.send()
+            } else if let title = relationshipManager.generateTitle(for: person) {
+                // 如果没有appViewModel，则回退到使用relationshipManager
                 self.cachedTitle = title
                 self.objectWillChange.send()
             }
         }
         
-        return "\(person.firstName)\(person.lastName)"
+        // 如果没有称谓，返回姓名（确保姓在前名在后）
+        return "\(person.lastName)\(person.firstName)"
     }
     
     @MainActor
     func updateDisplayTitle() async {
         guard let person = currentPerson else { return }
-        if let title = relationshipManager.generateTitle(for: person) {
+        
+        // 使用appViewModel而不是relationshipManager来生成称谓
+        if let appViewModel = appViewModel, let title = appViewModel.generateTitle(for: person) {
+            cachedTitle = title
+            objectWillChange.send()
+        } else if let title = relationshipManager.generateTitle(for: person) {
+            // 如果没有appViewModel，则回退到使用relationshipManager
             cachedTitle = title
             objectWillChange.send()
         }
@@ -413,7 +425,6 @@ class PersonCardViewModel: ObservableObject {
     
     @MainActor
     func reloadData() async {
-        print("🔄 开始重新加载数据...")
         
         do {
             // 使用 appViewModel 刷新数据
@@ -428,14 +439,11 @@ class PersonCardViewModel: ObservableObject {
                 if let updatedPerson = stateManager.state.persons.first(where: { $0.id == personId }) {
                     self.state = PersonCardState.from(updatedPerson)
                     await updateDisplayTitle()
-                    print("✅ 人物数据重新加载成功")
                 } else {
-                    print("⚠️ 未找到当前人物，ID: \(personId)")
                     errorMessage = "未找到当前人物"
                 }
             }
         } catch {
-            print("❌ 重新加载数据失败: \(error.localizedDescription)")
             errorMessage = "重新加载数据失败: \(error.localizedDescription)"
         }
     }

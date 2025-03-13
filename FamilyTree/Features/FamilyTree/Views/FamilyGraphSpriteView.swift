@@ -13,7 +13,6 @@ struct FamilyGraphSpriteView: View {
         scene.scaleMode = .resizeFill
         scene.isUserInteractionEnabled = true
         scene.backgroundColor = .white
-        print("创建共享 FamilyGraphScene 实例")
         return scene
     }()
     
@@ -29,7 +28,6 @@ struct FamilyGraphSpriteView: View {
                 .background(Color.white)
                 .allowsHitTesting(true)
                 .onAppear {
-                    print("SpriteView appeared with size: \(geometry.size)")
                     scene.setupInitialView(with: geometry.size)
                     
                     // 修改防重复加载逻辑
@@ -38,7 +36,6 @@ struct FamilyGraphSpriteView: View {
                         if let graphData = appViewModel.familyGraphViewModel.graphData {
                             scene.updateGraph(with: graphData)
                             hasLoadedData = true
-                            print("♻️ 使用现有数据更新图表")
                         }
                         // 不再在这里主动加载数据，由 ContentView 的 onChange 处理
                     }

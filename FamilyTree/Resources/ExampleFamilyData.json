@@ -9,122 +9,157 @@
             "firstName": "大山",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1930-05-15T00:00:00Z"
+            "birthDate": "1930-05-15T00:00:00Z",
+            "birthOrder": 1
         },
         {
             "firstName": "秀兰",
             "lastName": "李",
             "gender": "female",
-            "birthDate": "1932-08-23T00:00:00Z"
+            "birthDate": "1932-08-23T00:00:00Z",
+            "birthOrder": 1
         },
         {
             "firstName": "建国",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1955-10-01T00:00:00Z"
+            "birthDate": "1955-10-01T00:00:00Z",
+            "birthOrder": 1
         },
         {
             "firstName": "丽华",
             "lastName": "王",
             "gender": "female",
-            "birthDate": "1958-03-08T00:00:00Z"
+            "birthDate": "1958-03-08T00:00:00Z",
+            "birthOrder": 1
         },
         {
             "firstName": "建军",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1957-08-01T00:00:00Z"
+            "birthDate": "1957-08-01T00:00:00Z",
+            "birthOrder": 2
         },
         {
             "firstName": "玉珍",
             "lastName": "陈",
             "gender": "female",
-            "birthDate": "1960-12-25T00:00:00Z"
+            "birthDate": "1960-12-25T00:00:00Z",
+            "birthOrder": 1
         },
         {
             "firstName": "小明",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1982-09-15T00:00:00Z"
+            "birthDate": "1982-09-15T00:00:00Z",
+            "birthOrder": 1,
+            "isSelf": true
         },
         {
             "firstName": "小红",
             "lastName": "张",
             "gender": "female",
-            "birthDate": "1985-04-20T00:00:00Z"
+            "birthDate": "1985-04-20T00:00:00Z",
+            "birthOrder": 2
         },
         {
             "firstName": "小军",
             "lastName": "张",
             "gender": "male",
-            "birthDate": "1984-06-18T00:00:00Z"
+            "birthDate": "1984-06-18T00:00:00Z",
+            "birthOrder": 1
         }
     ],
     "relationships": [
         {
             "type": "spouse",
             "fromPersonIndex": 0,
-            "toPersonIndex": 1
+            "toPersonIndex": 1,
+            "description": "张大山和李秀兰是夫妻"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 2,
-            "toPersonIndex": 0
+            "type": "parent-child",
+            "parentIndex": 0,
+            "childIndex": 2,
+            "description": "张大山是张建国的父亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 2,
-            "toPersonIndex": 1
+            "type": "parent-child",
+            "parentIndex": 1,
+            "childIndex": 2,
+            "description": "李秀兰是张建国的母亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 4,
-            "toPersonIndex": 0
+            "type": "parent-child",
+            "parentIndex": 0,
+            "childIndex": 4,
+            "description": "张大山是张建军的父亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 4,
-            "toPersonIndex": 1
+            "type": "parent-child",
+            "parentIndex": 1,
+            "childIndex": 4,
+            "description": "李秀兰是张建军的母亲"
         },
         {
             "type": "spouse",
             "fromPersonIndex": 2,
-            "toPersonIndex": 3
+            "toPersonIndex": 3,
+            "description": "张建国和王丽华是夫妻"
         },
         {
             "type": "spouse",
             "fromPersonIndex": 4,
-            "toPersonIndex": 5
+            "toPersonIndex": 5,
+            "description": "张建军和陈玉珍是夫妻"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 6,
-            "toPersonIndex": 2
+            "type": "parent-child",
+            "parentIndex": 2,
+            "childIndex": 6,
+            "description": "张建国是张小明的父亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 6,
-            "toPersonIndex": 3
+            "type": "parent-child",
+            "parentIndex": 3,
+            "childIndex": 6,
+            "description": "王丽华是张小明的母亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 7,
-            "toPersonIndex": 2
+            "type": "parent-child",
+            "parentIndex": 2,
+            "childIndex": 7,
+            "description": "张建国是张小红的父亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 7,
-            "toPersonIndex": 3
+            "type": "parent-child",
+            "parentIndex": 3,
+            "childIndex": 7,
+            "description": "王丽华是张小红的母亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 8,
-            "toPersonIndex": 4
+            "type": "parent-child",
+            "parentIndex": 4,
+            "childIndex": 8,
+            "description": "张建军是张小军的父亲"
         },
         {
-            "type": "child",
-            "fromPersonIndex": 8,
-            "toPersonIndex": 5
+            "type": "parent-child",
+            "parentIndex": 5,
+            "childIndex": 8,
+            "description": "陈玉珍是张小军的母亲"
+        },
+        {
+            "type": "sibling",
+            "person1Index": 2,
+            "person2Index": 4,
+            "description": "张建国和张建军是兄弟"
+        },
+        {
+            "type": "sibling",
+            "person1Index": 6,
+            "person2Index": 7,
+            "description": "张小明和张小红是兄妹"
         }
     ]
 }

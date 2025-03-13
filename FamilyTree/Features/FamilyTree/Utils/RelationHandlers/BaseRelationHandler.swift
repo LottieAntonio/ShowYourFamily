@@ -1,407 +1,506 @@
 import Foundation
 
+// 添加父母缓存结构体
+struct ParentCache {
+    var father: Person?
+    var mother: Person?
+}
+
 class BaseRelationHandler {
-    let relationships: [Relationship]
-    let persons: [Person]
+    var relationships: [Relationship]
+    var persons: [Person]
+    
+    // 缓存
+    private var parentCache: [UUID: ParentCache] = [:]
+    private var childrenCache: [UUID: [Person]] = [:]
+    private var spouseCache: [UUID: [Person]] = [:]
+    private var siblingCache: [UUID: [Person]] = [:]
     
     init(relationships: [Relationship], persons: [Person]) {
         self.relationships = relationships
         self.persons = persons
+        // 初始化缓存
+        buildCache()
     }
     
-    // 查找两个人之间的关系路径
-    // 修改 findRelationPath 方法中的验证逻辑
-    func findRelationPath(from source: UUID, to target: UUID) -> [Relationship] {
-        guard source != target else { return [] }
-        
-        var visited = Set<UUID>()
-        var queue = [(source, [Relationship]())]
-        visited.insert(source)
-        var shortestPath: [Relationship]?
-        var shortestLength = Int.max
-        var allPaths: [[Relationship]] = []
-        
-        while !queue.isEmpty {
-            let (current, path) = queue.removeFirst()
-            
-            if current == target {
-                if validatePath(path) {
-                    allPaths.append(path)
-                    if path.count < shortestLength {
-                        shortestPath = path
-                        shortestLength = path.count
-                    }
-                }
-                continue  // 不要立即返回，继续搜索其他路径
-            }
-            
-            if path.count >= shortestLength {
-                continue
-            }
-            
-            let possibleRelations = relationships.filter { relation in
-                relation.fromPerson == current || relation.toPerson == current
-            }
-            
-            // 移除关系排序，平等对待所有关系类型
-            for relation in possibleRelations {
-                let nextPerson = relation.fromPerson == current ? relation.toPerson : relation.fromPerson
-                
-                if !visited.contains(nextPerson) {
-                    visited.insert(nextPerson)
-                    queue.append((nextPerson, path + [relation]))  // 所有关系都添加到队列尾部
-                }
-            }
-        }
-        
-        return shortestPath ?? []
+    // 添加updateData方法到基类
+    func updateData(relationships: [Relationship], persons: [Person]) {
+        self.relationships = relationships
+        self.persons = persons
+        // 清除并重建缓存
+        clearCache()
+        buildCache()
     }
     
-    private func validatePath(_ path: [Relationship]) -> Bool {
-        let relationTypes = Set(path.map { $0.type })
-        
-        if relationTypes.allSatisfy({ $0 == .father || $0 == .mother }) {
-            let ancestors = getAncestorInfo(path)
-            var currentId: UUID?
-            for (person, _) in ancestors {
-                if currentId == nil {
-                    currentId = person
-                } else if person != currentId {
-                    return false
-                }
-                currentId = person
-            }
-            return true
-        }
-        
-        if (relationTypes.contains(.father) || relationTypes.contains(.mother)) &&
-            (relationTypes.contains(.brother) || relationTypes.contains(.sister)) {
-            let relatives = getUncleAuntInfo(path)
-            
-            if relatives.isEmpty {
-                return false
-            }
-            
-            // 检查第一个关系是否是父母
-            guard let firstRelative = relatives.first,
-                  firstRelative.type == .father || firstRelative.type == .mother else {
-                return false
-            }
-            
-            // 检查是否包含至少一个兄弟姐妹
-            let hasSibling = relatives.contains { relative in
-                relative.type == .brother || relative.type == .sister
-            }
-            return hasSibling
-        }
-            
-        
-            
-        
-        if relationTypes.contains(.brother) || relationTypes.contains(.sister) {
-            // 检查路径的连续性
-            var currentId: UUID?
-            for relation in path {
-                if currentId == nil {
-                    currentId = relation.fromPerson
-                    continue
-                }
-                
-                if relation.fromPerson != currentId && relation.toPerson != currentId {
-                    return false
-                }
-                
-                currentId = relation.fromPerson == currentId ? relation.toPerson : relation.fromPerson
-            }
-            
-            // 验证兄弟姐妹关系
-            let siblingInfo = getSiblingInfo([])
-            for i in 0..<path.count {
-                if path[i].type == .brother || path[i].type == .sister {
-                    let source = path[i].fromPerson
-                    let target = path[i].toPerson
-                    if !validateSiblingRelation(source: source, target: target,
-                                              fatherChildren: siblingInfo.fatherChildren,
-                                              motherChildren: siblingInfo.motherChildren) {
-                        return false
-                    }
-                }
-            }
-            return true
-        }
-        
-        if relationTypes.contains(.father) || relationTypes.contains(.mother) || relationTypes.contains(.child) {
-            var currentId: UUID?
-            for relation in path {
-                if currentId == nil {
-                    currentId = relation.fromPerson
-                    continue
-                }
-                
-                if relation.fromPerson != currentId && relation.toPerson != currentId {
-                    return false
-                }
-                
-                currentId = relation.fromPerson == currentId ? relation.toPerson : relation.fromPerson
-            }
-            return true
-        }
-        
-        if relationTypes.contains(.spouse) {
-            return true
-        }
-        
-        return false
+    // 清除缓存
+    private func clearCache() {
+        parentCache.removeAll()
+        childrenCache.removeAll()
+        spouseCache.removeAll()
+        siblingCache.removeAll()
     }
     
-    func validateSiblingRelation(source: UUID, target: UUID,
-                                          fatherChildren: [UUID: Set<UUID>],
-                                          motherChildren: [UUID: Set<UUID>]) -> Bool {
-           
-        // 检查是否存在共同的父亲或母亲
-           for (_, children) in fatherChildren {
-               if children.contains(source) && children.contains(target) {
-                   return true
-               }
-           }
-           
-           for (_, children) in motherChildren {
-               if children.contains(source) && children.contains(target) {
-                   return true
-               }
-           }
-           
-           return false
-       }
-   
-    private func validateAncestorPath(_ path: [Relationship]) -> Bool {
-        // 检查是否所有关系都是父母关系
-        guard path.allSatisfy({ $0.type == .father || $0.type == .mother }) else { return false }
-        
-        // 检查方向是否一致（应该都是向上追溯）
-        var currentId: UUID?
-        for relation in path {
-            if currentId == nil {
-                currentId = relation.toPerson
-            } else if currentId != relation.toPerson {
-                return false
-            }
-            currentId = relation.fromPerson
-        }
-        
-        return true
-    }
-    
-    private func isSiblingPath(_ path: [Relationship]) -> Bool {
-        // 获取路径中的所有人
-        var people = Set<UUID>()
-        for relation in path {
-            people.insert(relation.fromPerson)
-            people.insert(relation.toPerson)
-        }
-        
-        // 检查是否存在共同的父亲
-        let fatherRelations = relationships.filter { relation in
-            relation.type == .father && people.contains(relation.toPerson)
-        }
-        
-        // 如果有共同的父亲，这是一个有效的兄弟姐妹路径
-        let fathers = Set(fatherRelations.map { $0.fromPerson })
-        if fathers.count == 1 {
-            return true
-        }
-        
-        return false
-    }
-    
-    // 获取祖先路径信息
-    func getAncestorInfo(_ path: [Relationship]) -> [(person: UUID, type: RelationType)] {
-        var ancestors: [(person: UUID, type: RelationType)] = []
-        var currentId: UUID?
-        
-        for relation in path {
-            if currentId == nil {
-                currentId = relation.fromPerson
-                // 记录第一个祖先
-                ancestors.append((relation.toPerson, relation.type))
-            } else if relation.fromPerson == currentId {
-                // 继续向上追溯
-                currentId = relation.toPerson
-                ancestors.append((relation.toPerson, relation.type))
-            }
-        }
-        
-        return ancestors
-    }
-    
-    // 获取旁系亲属路径信息（叔伯姑舅姨）
-    // 添加一个私有方法来处理父母关系的映射
-    private func createParentMaps() -> (personsMap: [UUID: Person],
-                                      childToParentMap: [UUID: [Relationship]],
-                                      parentToChildMap: [UUID: [Relationship]]) {
-        let personsMap = Dictionary(uniqueKeysWithValues: persons.map { ($0.id, $0) })
-        
-        // 预先筛选出所有父母关系
-        let allParentRelations = relationships.filter { relation in
-            relation.type == .father || relation.type == .mother
-        }
-        
-        // 创建父母关系的快速查找映射
-        let childToParentMap = Dictionary(grouping: allParentRelations) { relation in
-            relation.fromPerson
-        }
-        
-        let parentToChildMap = Dictionary(grouping: allParentRelations) { relation in
-            relation.toPerson
-        }
-        
-        return (personsMap, childToParentMap, parentToChildMap)
-    }
-    
-    // 修改 getUncleAuntInfo 方法
-    private func getUncleAuntInfo(_ path: [Relationship]) -> [(person: UUID, type: RelationType)] {
-        var relatives = [(person: UUID, type: RelationType)]()
-        let (personsMap, childToParentMap, parentToChildMap) = createParentMaps()
-        
-        let peopleInPath = Set(path.flatMap { [$0.fromPerson, $0.toPerson] })
-        
-        let parentRelations = relationships.filter { relation in
-            guard peopleInPath.contains(relation.fromPerson) || peopleInPath.contains(relation.toPerson) else { return false }
-            guard relation.type == .father || relation.type == .mother else { return false }
+    // 构建缓存
+    private func buildCache() {
+        print("🔄 开始构建关系缓存...")
+        // 预先计算并缓存常用关系
+        for person in persons {
+            // 缓存父母关系
+            let (father, mother) = findParents(person.id)
+            let parentCacheItem = ParentCache(father: father, mother: mother)
+            parentCache[person.id] = parentCacheItem
             
-            if let person = personsMap[relation.toPerson] {
-                return (relation.type == .mother && person.gender == .female) ||
-                       (relation.type == .father && person.gender == .male)
-            }
-            return false
+            // 缓存子女关系 - 使用已有的getChildren方法但跳过缓存检查
+            childrenCache[person.id] = findChildrenDirectly(person.id)
+            
+            // 缓存配偶关系 - 使用已有的getSpouses方法但跳过缓存检查
+            spouseCache[person.id] = findSpousesDirectly(person.id)
+            
+            // 缓存兄弟姐妹关系 - 使用已有的getSiblings方法但跳过缓存检查
+            siblingCache[person.id] = findSiblingsDirectly(person.id)
+        }
+        print("✅ 缓存构建完成")
+    }
+    
+    // 直接查找子女（不使用缓存）
+    private func findChildrenDirectly(_ personId: UUID) -> [Person] {
+        // 查找子女关系
+        let childRelations = relationships.filter { 
+            $0.fromPerson == personId && $0.type == .child 
         }
         
-        for parentRelation in parentRelations {
-            guard personsMap[parentRelation.toPerson] != nil else { continue }
-            
-            relatives.append((parentRelation.toPerson, parentRelation.type))
-            
-            if let grandParentRelations = childToParentMap[parentRelation.toPerson] {
-                for grandParentRelation in grandParentRelations {
-                    let grandParentId = grandParentRelation.toPerson
-                    
-                    if let uncleAunts = parentToChildMap[grandParentId] {
-                        for uncleAunt in uncleAunts {
-                            let uncleAuntId = uncleAunt.fromPerson
-                            if uncleAuntId != parentRelation.toPerson,
-                               let sibling = personsMap[uncleAuntId] {
-                                let correctType: RelationType = sibling.gender == .male ? .brother : .sister
-                                relatives.append((uncleAuntId, correctType))
-                            }
-                        }
-                    }
+        let children = childRelations.compactMap { relation in
+            persons.first(where: { $0.id == relation.toPerson })
+        }
+        
+        return children
+    }
+    
+    // 直接查找配偶（不使用缓存）
+    private func findSpousesDirectly(_ personId: UUID) -> [Person] {
+        // 查找配偶关系
+        let spouseRelations = relationships.filter {
+            ($0.fromPerson == personId && $0.type == .spouse) ||
+            ($0.toPerson == personId && $0.type == .spouse)
+        }
+        
+        let spouses = spouseRelations.compactMap { relation in
+            let spouseId = relation.fromPerson == personId ? relation.toPerson : relation.fromPerson
+            return persons.first(where: { $0.id == spouseId })
+        }
+        
+        return spouses
+    }
+    
+    // 直接查找兄弟姐妹（不使用缓存）
+    private func findSiblingsDirectly(_ personId: UUID) -> [Person] {
+        var siblings: [Person] = []
+        
+        // 通过父母查找兄弟姐妹
+        if let father = getFather(personId) {
+            let fatherChildren = findChildrenDirectly(father.id)
+            siblings.append(contentsOf: fatherChildren.filter { $0.id != personId })
+        }
+        
+        if let mother = getMother(personId) {
+            let motherChildren = findChildrenDirectly(mother.id)
+            // 添加不重复的母亲的子女
+            for child in motherChildren {
+                if child.id != personId && !siblings.contains(where: { $0.id == child.id }) {
+                    siblings.append(child)
                 }
             }
         }
         
-        return relatives
-    }
-    
-  
-    // 判断年龄大小
-    func isOlder(_ person1: Person, than person2: Person) -> Bool? {
-        guard let birth1 = person1.birthDate,
-              let birth2 = person2.birthDate else {
-            return nil
+        // 直接的兄弟姐妹关系
+        let directSiblingRelations = relationships.filter {
+            ($0.fromPerson == personId && ($0.type == .brother || $0.type == .sister)) ||
+            ($0.toPerson == personId && ($0.type == .brother || $0.type == .sister))
         }
-        return birth1 < birth2
+        
+        for relation in directSiblingRelations {
+            let siblingId = relation.fromPerson == personId ? relation.toPerson : relation.fromPerson
+            if let sibling = persons.first(where: { $0.id == siblingId }),
+               !siblings.contains(where: { $0.id == sibling.id }) {
+                siblings.append(sibling)
+            }
+        }
+        
+        return siblings
     }
     
-    // 获取关系的另一端的人
-    func getOtherPerson(in relation: Relationship, from personId: UUID) -> UUID? {  // 修改返回类型为可选
-        guard relation.fromPerson == personId || relation.toPerson == personId else { return nil }
-        return relation.fromPerson == personId ? relation.toPerson : relation.fromPerson
-    }
-    
-    // 获取特定类型的关系
+    // 获取指定类型的关系
     func findRelations(from personId: UUID, ofType type: RelationType) -> [Relationship] {
-        guard !relationships.isEmpty else { return [] }
         return relationships.filter { relation in
-            relation.type == type && 
-            (relation.fromPerson == personId || relation.toPerson == personId)
+            (relation.fromPerson == personId || relation.toPerson == personId) && relation.type == type
         }
     }
     
-    // 修改返回类型，返回父母的子女集合
-    func getSiblingInfo(_ path: [Relationship]) -> (fatherChildren: [UUID: Set<UUID>], motherChildren: [UUID: Set<UUID>]) {
-        let (personsMap, childToParentMap, parentToChildMap) = createParentMaps()
-        var fatherChildren: [UUID: Set<UUID>] = [:]
-        var motherChildren: [UUID: Set<UUID>] = [:]
+    // 获取关系中的另一个人
+    func getOtherPerson(in relation: Relationship, from personId: UUID) -> UUID? {
+        if relation.fromPerson == personId {
+            return relation.toPerson
+        } else if relation.toPerson == personId {
+            return relation.fromPerson
+        }
+        return nil
+    }
+    
+    // ===== 直接关系查询方法 =====
+    
+    // 查找一个人的父亲
+    func getFather(_ personId: UUID) -> Person? {
+        // 检查缓存
+        if let cached = parentCache[personId]?.father {
+            return cached
+        }
         
-        // 如果传入了父母关系，就找到这个父母的父母（祖父母）的所有子女
-        if let parentRelation = path.first {
-            let parentId = parentRelation.toPerson
-            // 找到父母的父母（祖父母）
-            if let grandParentRelations = childToParentMap[parentId] {
-                for grandParentRelation in grandParentRelations {
-                    let grandParentId = grandParentRelation.toPerson
-                    guard let grandParent = personsMap[grandParentId] else { continue }
-                    
-                    // 找到祖父母的所有子女（即父母的兄弟姐妹）
-                    if let parentSiblings = parentToChildMap[grandParentId] {
-                        let children = Set(parentSiblings.map { $0.fromPerson })
-                        if grandParent.gender == .male {
-                            fatherChildren[grandParentId] = children
-                        } else {
-                            motherChildren[grandParentId] = children
-                        }
-                    }
+        print("🔍 开始查找 \(getPersonName(personId)) 的父亲...")
+        
+        // 打印所有关系进行调试
+        print("📋 所有关系数量: \(relationships.count)")
+        
+        // 检查所有关系，查找可能的父亲关系
+        for (index, relation) in relationships.enumerated() {
+            print("🔄 检查关系 #\(index): 类型=\(relation.type), 从=\(getPersonName(relation.fromPerson)), 到=\(getPersonName(relation.toPerson))")
+            
+            // 检查是否是父子关系
+            if relation.fromPerson == personId && relation.type == .father {
+                if let father = persons.first(where: { $0.id == relation.toPerson }) {
+                    print("✅ 找到父亲关系(子->父): \(father.name)")
+                    return father
                 }
+            }
+            
+            if relation.toPerson == personId && relation.type == .father {
+                if let father = persons.first(where: { $0.id == relation.fromPerson }) {
+                    print("✅ 找到父亲关系(父->子): \(father.name)")
+                    return father
+                }
+            }
+            
+            // 检查是否是子女关系
+            if relation.fromPerson == personId && relation.type == .child {
+                if let potentialFather = persons.first(where: { $0.id == relation.toPerson && $0.gender == .male }) {
+                    print("✅ 找到父亲关系(通过子女关系): \(potentialFather.name)")
+                    return potentialFather
+                }
+            }
+            
+            if relation.toPerson == personId && relation.type == .child {
+                if let potentialFather = persons.first(where: { $0.id == relation.fromPerson && $0.gender == .male }) {
+                    print("✅ 找到父亲关系(通过子女关系反向): \(potentialFather.name)")
+                    return potentialFather
+                }
+            }
+        }
+        
+        print("❌ 未找到 \(getPersonName(personId)) 的父亲")
+        return nil
+    }
+    
+    // 辅助方法：根据ID获取人名
+    private func getPersonName(_ personId: UUID) -> String {
+        if let person = persons.first(where: { $0.id == personId }) {
+            return person.name
+        }
+        return personId.uuidString
+    }
+    
+    // 查找一个人的母亲
+    func getMother(_ personId: UUID) -> Person? {
+        // 检查缓存
+        if let cached = parentCache[personId]?.mother {
+            return cached
+        }
+        
+        print("🔍 开始查找 \(getPersonName(personId)) 的母亲...")
+        
+        // 查找母亲关系 - 考虑两种方向
+        // 1. 母亲指向子女的关系
+        let motherRelations = relationships.filter { relation in
+            // 子女指向母亲的关系
+            (relation.fromPerson == personId && relation.type == .mother) ||
+            // 母亲指向子女的关系
+            (relation.toPerson == personId && relation.type == .child && 
+             persons.first(where: { $0.id == relation.fromPerson })?.gender == .female)
+        }
+        
+        print("📊 找到母亲关系数量: \(motherRelations.count)")
+        for (index, relation) in motherRelations.enumerated() {
+            let motherName = relation.type == .mother ? 
+                getPersonName(relation.toPerson) : getPersonName(relation.fromPerson)
+            print("  #\(index): 类型=\(relation.type), 母亲=\(motherName)")
+        }
+        
+        if let motherRelation = motherRelations.first {
+            let motherId = motherRelation.type == .mother ? 
+                           motherRelation.toPerson : motherRelation.fromPerson
+            if let mother = persons.first(where: { $0.id == motherId }) {
+                print("👩 找到母亲关系: \(mother.name) -> \(getPersonName(personId))")
+                
+                // 添加到缓存
+                if parentCache[personId] == nil {
+                    parentCache[personId] = ParentCache()
+                }
+                parentCache[personId]?.mother = mother
+                
+                return mother
+            }
+        }
+        
+        print("❌ 未找到 \(getPersonName(personId)) 的母亲")
+        return nil
+    }
+    
+    // 查找一个人的父母
+    func findParents(_ personId: UUID) -> (father: Person?, mother: Person?) {
+        let father = getFather(personId)
+        let mother = getMother(personId)
+        return (father, mother)
+    }
+    
+    // 查找一个人的所有子女
+    func getChildren(_ personId: UUID) -> [Person] {
+        // 检查缓存
+        if let cached = childrenCache[personId] {
+            return cached
+        }
+        
+        // 查找子女关系
+        let childRelations = relationships.filter { 
+            $0.fromPerson == personId && $0.type == .child 
+        }
+        
+        let children = childRelations.compactMap { relation in
+            persons.first(where: { $0.id == relation.toPerson })
+        }
+        
+        return children
+    }
+    
+    // 查找一个人的所有兄弟姐妹
+    func getSiblings(_ personId: UUID) -> [Person] {
+        // 检查缓存
+        if let cached = siblingCache[personId] {
+            return cached
+        }
+        
+        var siblings: [Person] = []
+        
+        // 通过父母查找兄弟姐妹
+        if let father = getFather(personId) {
+            let fatherChildren = getChildren(father.id)
+            siblings.append(contentsOf: fatherChildren.filter { $0.id != personId })
+        }
+        
+        if let mother = getMother(personId) {
+            let motherChildren = getChildren(mother.id)
+            // 添加不重复的母亲的子女
+            for child in motherChildren {
+                if child.id != personId && !siblings.contains(where: { $0.id == child.id }) {
+                    siblings.append(child)
+                }
+            }
+        }
+        
+        // 直接的兄弟姐妹关系
+        let directSiblingRelations = relationships.filter {
+            ($0.fromPerson == personId && ($0.type == .brother || $0.type == .sister)) ||
+            ($0.toPerson == personId && ($0.type == .brother || $0.type == .sister))
+        }
+        
+        for relation in directSiblingRelations {
+            let siblingId = relation.fromPerson == personId ? relation.toPerson : relation.fromPerson
+            if let sibling = persons.first(where: { $0.id == siblingId }),
+               !siblings.contains(where: { $0.id == sibling.id }) {
+                siblings.append(sibling)
+            }
+        }
+        
+        return siblings
+    }
+    
+    // 查找一个人的配偶
+    func getSpouses(_ personId: UUID) -> [Person] {
+        // 检查缓存
+        if let cached = spouseCache[personId] {
+            return cached
+        }
+        
+        // 查找配偶关系
+        let spouseRelations = relationships.filter {
+            ($0.fromPerson == personId && $0.type == .spouse) ||
+            ($0.toPerson == personId && $0.type == .spouse)
+        }
+        
+        let spouses = spouseRelations.compactMap { relation in
+            let spouseId = relation.fromPerson == personId ? relation.toPerson : relation.fromPerson
+            return persons.first(where: { $0.id == spouseId })
+        }
+        
+        return spouses
+    }
+    
+    // 查找一个人的祖父母
+    // 获取一个人的所有祖父母
+    func getGrandparents(_ personId: UUID) -> [Person] {
+        print("🔍 开始查找 \(getPersonName(personId)) 的祖父母...")
+        var grandparents: [Person] = []
+        
+        // 通过父亲查找祖父母
+        if let father = getFather(personId) {
+            print("👨 找到父亲: \(father.name)")
+            
+            if let grandfather = getFather(father.id) {
+                print("👴 找到父系祖父: \(grandfather.name)")
+                grandparents.append(grandfather)
+            } else {
+                print("❌ 未找到父系祖父")
+            }
+            
+            if let grandmother = getMother(father.id) {
+                print("👵 找到父系祖母: \(grandmother.name)")
+                grandparents.append(grandmother)
+            } else {
+                print("❌ 未找到父系祖母")
             }
         } else {
-            // 如果没有传入父母关系，返回所有父母的子女集合
-            for (parentId, relations) in parentToChildMap {
-                guard let parent = personsMap[parentId] else { continue }
-                let children = Set(relations.map { $0.fromPerson })
-                if parent.gender == .male {
-                    fatherChildren[parentId] = children
-                } else {
-                    motherChildren[parentId] = children
-                }
-            }
+            print("❌ 未找到父亲")
         }
         
-        return (fatherChildren, motherChildren)
+        // 通过母亲查找祖父母
+        if let mother = getMother(personId) {
+            print("👩 找到母亲: \(mother.name)")
+            
+            if let grandfather = getFather(mother.id) {
+                print("👴 找到母系祖父: \(grandfather.name)")
+                grandparents.append(grandfather)
+            } else {
+                print("❌ 未找到母系祖父")
+            }
+            
+            if let grandmother = getMother(mother.id) {
+                print("👵 找到母系祖母: \(grandmother.name)")
+                grandparents.append(grandmother)
+            } else {
+                print("❌ 未找到母系祖母")
+            }
+        } else {
+            print("❌ 未找到母亲")
+        }
+        
+        print("📊 找到祖父母数量: \(grandparents.count)")
+        return grandparents
     }
     
+    // 查找一个人的叔伯姑姨
+    func getUnclesAunts(_ personId: UUID) -> [Person] {
+        var unclesAunts: [Person] = []
+        
+        // 通过父亲查找叔伯
+        if let father = getFather(personId) {
+            let fatherSiblings = getSiblings(father.id)
+            unclesAunts.append(contentsOf: fatherSiblings)
+        }
+        
+        // 通过母亲查找舅姨
+        if let mother = getMother(personId) {
+            let motherSiblings = getSiblings(mother.id)
+            unclesAunts.append(contentsOf: motherSiblings)
+        }
+        
+        return unclesAunts
+    }
+    
+    // 查找一个人的堂表兄弟姐妹
+    func getCousins(_ personId: UUID) -> [Person] {
+        var cousins: [Person] = []
+        
+        // 获取所有叔伯姑姨
+        let unclesAunts = getUnclesAunts(personId)
+        
+        // 获取叔伯姑姨的子女
+        for uncleAunt in unclesAunts {
+            let children = getChildren(uncleAunt.id)
+            cousins.append(contentsOf: children)
+        }
+        
+        return cousins
+    }
+    
+    // 查找一个人的侄子女/外甥
+    func getNephewsNieces(_ personId: UUID) -> [Person] {
+        var nephewsNieces: [Person] = []
+        
+        // 获取所有兄弟姐妹
+        let siblings = getSiblings(personId)
+        
+        // 获取兄弟姐妹的子女
+        for sibling in siblings {
+            let children = getChildren(sibling.id)
+            nephewsNieces.append(contentsOf: children)
+        }
+        
+        return nephewsNieces
+    }
+    
+    // 查找一个人的孙子女
+    func getGrandchildren(_ personId: UUID) -> [Person] {
+        var grandchildren: [Person] = []
+        
+        // 获取所有子女
+        let children = getChildren(personId)
+        
+        // 获取子女的子女
+        for child in children {
+            let childrenOfChild = getChildren(child.id)
+            grandchildren.append(contentsOf: childrenOfChild)
+        }
+        
+        return grandchildren
+    }
+    
+    // 辅助方法：判断两个人是否有直接关系
+    func hasDirectRelation(from sourceId: UUID, to targetId: UUID) -> Bool {
+        return relationships.contains { relation in
+            (relation.fromPerson == sourceId && relation.toPerson == targetId) ||
+            (relation.fromPerson == targetId && relation.toPerson == sourceId)
+        }
+    }
+    
+    // 辅助方法：获取两个人之间的直接关系类型
+    func getDirectRelationType(from sourceId: UUID, to targetId: UUID) -> RelationType? {
+        if let relation = relationships.first(where: { 
+            ($0.fromPerson == sourceId && $0.toPerson == targetId) ||
+            ($0.fromPerson == targetId && $0.toPerson == sourceId)
+        }) {
+            if relation.fromPerson == sourceId {
+                return relation.type
+            } else {
+                return relation.type.opposite
+            }
+        }
+        return nil
+    }
+    
+    // 辅助方法：判断一个人是否比另一个人年长
+    func isOlder(_ person1: Person, than person2: Person) -> Bool? {
+        // 如果有出生日期，直接比较
+        if let birth1 = person1.birthDate, let birth2 = person2.birthDate {
+            return birth1 < birth2
+        }
+        
+        // 否则返回nil表示无法确定
+        return nil
+    }
+    
+    // 查找侄子/侄女称谓（基类提供默认实现）
     func findNephewTitle(from source: Person, to target: Person, isFromBrother: Bool) -> String? {
-        if isFromBrother {
-            return target.gender == .male ? "侄子" : "侄女"
+        if target.gender == .male {
+            return isFromBrother ? "侄子" : "外甥"
         } else {
-            return target.gender == .male ? "外甥" : "外甥女"
+            return isFromBrother ? "侄女" : "外甥女"
         }
     }
-    
-    func getFather(of person: Person) -> Person? {
-        let fatherRelation = relationships.first { relation in
-            (relation.toPerson == person.id || relation.fromPerson == person.id) &&
-            relation.type == .father
-        }
-        
-        if let relation = fatherRelation {
-            let fatherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
-            return persons.first(where: { $0.id == fatherId })
-        }
-        return nil
-    }
-    
-    // 添加获取母亲的辅助方法
-    func getMother(of person: Person) -> Person? {
-        let motherRelation = relationships.first { relation in
-            (relation.toPerson == person.id || relation.fromPerson == person.id) &&
-            relation.type == .mother
-        }
-        
-        if let relation = motherRelation {
-            let motherId = relation.toPerson == person.id ? relation.fromPerson : relation.toPerson
-            return persons.first(where: { $0.id == motherId })
-        }
-        return nil
-    }
-   
 }

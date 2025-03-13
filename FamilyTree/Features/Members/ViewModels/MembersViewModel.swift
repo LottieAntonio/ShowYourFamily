@@ -30,7 +30,6 @@ class MembersViewModel: ObservableObject {
         // 同步初始数据
         self.persons = stateManager.state.persons
         
-        print("✅ MembersViewModel 初始化完成")
     }
     
     private func setupBindings() {
@@ -68,7 +67,6 @@ class MembersViewModel: ObservableObject {
     func loadData() async {
         // 只在必要时加载数据
         if persons.isEmpty {
-            print("📋 MembersViewModel 加载数据")
             // 直接使用 stateManager 的数据
             self.persons = stateManager.state.persons
             

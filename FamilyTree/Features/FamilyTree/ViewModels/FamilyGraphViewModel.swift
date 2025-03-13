@@ -35,13 +35,11 @@ class FamilyGraphViewModel: ObservableObject {
                 let selectedPersonChanged = self.selectedPerson?.id != state.selectedPerson?.id
                 
                 if personsChanged || relationshipsChanged || selectedPersonChanged {
-                    print("📊 FamilyGraphViewModel: 检测到重要数据变化")
                     self.persons = state.persons
                     self.relationships = state.relationships
                     
                     if selectedPersonChanged {
                         if let selectedPerson = state.selectedPerson {
-                            print("📊 FamilyGraphViewModel: 选中人物变化，\(selectedPerson.name)")
                             self.selectedPerson = selectedPerson
                             self.updateGraphData()
                         }
@@ -56,13 +54,11 @@ class FamilyGraphViewModel: ObservableObject {
     
     // 修改 loadData 方法，使其更适合被 FamilyAppViewModel 调用
     func loadData() async {
-        print("📊 FamilyGraphViewModel 开始加载数据")
         
         // 如果状态中没有数据，不再自己加载，而是依赖 FamilyAppViewModel
         if !stateManager.state.persons.isEmpty {
             // 如果没有选中的人物，但有人物数据，选择第一个
             if selectedPerson == nil, let firstPerson = stateManager.state.persons.first {
-                print("📊 自动选择第一个人物：\(firstPerson.name)")
                 stateManager.selectPerson(firstPerson)
             }
             
@@ -75,19 +71,13 @@ class FamilyGraphViewModel: ObservableObject {
     
     private func updateGraphData() {
         guard let centerPerson = selectedPerson else {
-            print("⚠️ 没有选中的中心人物，无法更新图谱")
             graphData = nil
             return
         }
-        
-        print("📊 开始为 \(centerPerson.name) (ID: \(centerPerson.id)) 创建图谱数据")
-        
-        // 打印所有关系，帮助调试
-        print("📊 所有关系:")
+     
         for rel in relationships {
             let fromPerson = persons.first { $0.id == rel.fromPerson }?.name ?? "未知"
             let toPerson = persons.first { $0.id == rel.toPerson }?.name ?? "未知"
-            print("   - \(fromPerson) -> \(toPerson): \(rel.type)")
         }
         
         // 创建一个集合来跟踪已处理的人物
@@ -255,20 +245,7 @@ class FamilyGraphViewModel: ObservableObject {
             )
         }
         
-        // 打印调试信息
-        if level == 0 {
-            print("中心人物: \(person.name)")
-            print("父母: \(parentNodes.map { $0.person.name }.joined(separator: ", "))")
-            print("子女: \(childNodes.map { $0.person.name }.joined(separator: ", "))")
-            print("配偶: \(spouseNodes.map { $0.person.name }.joined(separator: ", "))")
-            print("兄弟姐妹: \(siblingNodes.map { $0.person.name }.joined(separator: ", "))")
-            
-            // 打印子女的子女信息
-            for child in childNodes {
-                print("\(child.person.name) 的子女: \(child.subNodes.children.map { $0.person.name }.joined(separator: ", "))")
-            }
-        }
-        
+       
         return FamilyGraphData(
             centerPerson: person,
             parents: parentNodes,

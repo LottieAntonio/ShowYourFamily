@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ParentsRow: View {
     let currentPerson: Person
-    // 修改为使用 appViewModel
     @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Binding var showingPersonCard: Bool
     @Binding var isTransitioning: Bool
@@ -20,6 +19,7 @@ struct ParentsRow: View {
             // 父亲关系区域
             RelationshipSection(
                 title: "父亲",
+                // 使用StateManager的方法
                 persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .father),
                 onAddTap: {
                     Task {
@@ -30,7 +30,7 @@ struct ParentsRow: View {
                         }
                         await showAddRelation(
                             currentPerson,
-                            .father,
+                            .father,  // 这里不需要修改，因为我们是从子女到父亲的关系
                             currentPerson.lastName,
                             .male
                         )
@@ -53,6 +53,7 @@ struct ParentsRow: View {
             // 母亲关系区域
             RelationshipSection(
                 title: "母亲",
+                // 使用StateManager的方法
                 persons: appViewModel.getStateManager().getRelatedPersons(for: currentPerson, relationType: .mother),
                 onAddTap: {
                     Task {
@@ -63,7 +64,7 @@ struct ParentsRow: View {
                         }
                         await showAddRelation(
                             currentPerson,
-                            .mother,
+                            .mother,  // 这里不需要修改，因为我们是从子女到母亲的关系
                             nil,
                             .female
                         )

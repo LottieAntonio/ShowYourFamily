@@ -2,142 +2,121 @@ import Foundation
 
 class DirectRelationHandler: BaseRelationHandler {
     func findDirectTitle(from source: Person, to target: Person) -> String? {
-        // 1. 检查是否是兄弟姐妹关系
-        let siblingInfo = getSiblingInfo([])  // 传空数组，让它检查所有关系
-        let (isValid, isPaternal) = determineSiblingType(
-            source: source.id,
-            target: target.id,
-            fatherChildren: siblingInfo.fatherChildren,
-            motherChildren: siblingInfo.motherChildren
-        )
+        // 添加调试日志
+        print("🔎 DirectRelationHandler 开始查找关系: \(source.name) -> \(target.name)")
         
-        if isValid {
-            if let isOlder = isOlder(target, than: source) {
-                if isPaternal == true {  // 同父异母
-                    return target.gender == .male ?
-                        (isOlder ? "同父异母哥哥" : "同父异母弟弟") :
-                        (isOlder ? "同父异母姐姐" : "同父异母妹妹")
-                } else if isPaternal == false {  // 同母异父
-                    return target.gender == .male ?
-                        (isOlder ? "同母异父哥哥" : "同母异父弟弟") :
-                        (isOlder ? "同母异父姐姐" : "同母异父妹妹")
-                } else {  // 同父同母
-                    return target.gender == .male ?
-                        (isOlder ? "哥哥" : "弟弟") :
-                        (isOlder ? "姐姐" : "妹妹")
-                }
-            }
-            return target.gender == .male ? "兄弟" : "姐妹"
+        // 检查父母关系
+        if let parentTitle = findParentTitle(from: source, to: target) {
+            print("👨‍👩‍👧 找到父母关系: \(parentTitle)")
+            return parentTitle
         }
         
-        // 2. 处理其他直接关系
-        let directRelations = relationships.filter { relation in
-            (relation.fromPerson == source.id && relation.toPerson == target.id) ||
-            (relation.fromPerson == target.id && relation.toPerson == source.id)
+        // 检查子女关系
+        if let childTitle = findChildTitle(from: source, to: target) {
+            print("👶 找到子女关系: \(childTitle)")
+            return childTitle
         }
         
-        // 2. 处理直接关系
-        for relation in directRelations {
-            // 确保关系方向正确
-            let type: RelationType
-            if relation.fromPerson == source.id {
-                // 源是关系的起点，保持原有关系
-                type = relation.type
-            } else {
-                // 如果关系方向相反，需要转换类型
-                type = {
-                    if relation.type == .father || relation.type == .mother {
-                        // 如果对方是我的父/母，那我是对方的子
-                        return .child
-                    } else if relation.type == .child {
-                        // 如果对方是我的子，那我是对方的父/母
-                        return source.gender == .male ? .father : .mother
-                    } else if relation.type == .spouse {
-                        return .spouse
-                    } else {
-                        return relation.type
-                    }
-                }()
-            }
-            
-            switch type {
-            case .father: return "父亲"
-            case .mother: return "母亲"
-            case .child: return target.gender == .male ? "儿子" : "女儿"
-            case .spouse: return target.gender == .male ? "丈夫" : "妻子"
-            case .brother, .sister: break  // 忽略直接的兄弟姐妹关系，因为已经在前面处理过了
-            }
-
+        // 检查兄弟姐妹关系
+        if let siblingTitle = findSiblingTitle(from: source, to: target) {
+            print("👫 找到兄弟姐妹关系: \(siblingTitle)")
+            return siblingTitle
         }
         
-        // 3. 检查子女的配偶
-        let childRelations = findRelations(from: source.id, ofType: .child)
-        
-        for childRelation in childRelations {
-            if let childId = getOtherPerson(in: childRelation, from: source.id) {
-                let spouses = relationships.filter { relation in
-                    (relation.fromPerson == childId || relation.toPerson == childId) &&
-                    relation.type == .spouse
-                }
-                
-                for spouseRelation in spouses {
-                    if let spouseId = getOtherPerson(in: spouseRelation, from: childId),
-                       spouseId == target.id {
-                        return target.gender == .male ? "女婿" : "儿媳"
-                    }
-                }
-            }
+        // 检查配偶关系
+        if let spouseTitle = findSpouseTitle(from: source, to: target) {
+            print("💑 找到配偶关系: \(spouseTitle)")
+            return spouseTitle
         }
-    
-        // 检查目标是否是父母的配偶
-        let parents = findRelations(from: source.id, ofType: .father) + 
-                     findRelations(from: source.id, ofType: .mother)
         
-        for parentRelation in parents {
-            if let parentId = getOtherPerson(in: parentRelation, from: source.id) {
-                // 查找父母的所有配偶
-                let parentSpouses = relationships.filter { relation in
-                    (relation.fromPerson == parentId || relation.toPerson == parentId) &&
-                    relation.type == .spouse
-                }
-                
-                for spouseRelation in parentSpouses {
-                    if let spouseId = getOtherPerson(in: spouseRelation, from: parentId),
-                       spouseId == target.id {
-                        // 是父亲的配偶
-                        if parentRelation.type == .father {
-                            return "爸爸的配偶之一，可以叫阿姨"
-                        }
-                        // 是母亲的配偶
-                        else if parentRelation.type == .mother {
-                            return "妈妈的配偶之一，可以叫叔叔"
-                        }
-                    }
-                }
-            }
-        }
+        print("❌ DirectRelationHandler 未找到直接关系")
         return nil
     }
     
-    private func determineSiblingType(source: UUID, target: UUID, fatherChildren: [UUID: Set<UUID>], motherChildren: [UUID: Set<UUID>]) -> (isValid: Bool, isPaternal: Bool?) {
-        let people = Set([source, target])
-        
-        // 检查是否存在共同的父亲和母亲
-        let commonFathers = fatherChildren.filter { $0.value.isSuperset(of: people) }
-        let commonMothers = motherChildren.filter { $0.value.isSuperset(of: people) }
-        
-        if commonFathers.count == 1 && commonMothers.count == 1 {
-            // 同父同母
-            return (true, nil)
-        } else if commonFathers.count == 1 {
-            // 同父异母
-            return (true, true)
-        } else if commonMothers.count == 1 {
-            // 同母异父
-            return (true, false)
+    // 查找父母称谓
+    private func findParentTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询而非路径查找
+        if let father = getFather(source.id), father.id == target.id {
+            return RelationshipTitleMapper.getParentTitle(gender: .male)
         }
         
-        return (false, nil)
+        if let mother = getMother(source.id), mother.id == target.id {
+            return RelationshipTitleMapper.getParentTitle(gender: .female)
+        }
+        
+        // 直接检查关系数据
+        let parentRelations = relationships.filter { 
+            ($0.fromPerson == target.id && $0.toPerson == source.id) && 
+            ($0.type == .father || $0.type == .mother || $0.type == .parent)
+        }
+        
+        if let parentRelation = parentRelations.first {
+            if parentRelation.type == .father || 
+               (parentRelation.type == .parent && target.gender == .male) {
+                return RelationshipTitleMapper.getParentTitle(gender: .male)
+            } else if parentRelation.type == .mother || 
+                    (parentRelation.type == .parent && target.gender == .female) {
+                return RelationshipTitleMapper.getParentTitle(gender: .female)
+            }
+        }
+        
+        // 检查子女关系的反向
+        let childRelations = relationships.filter { 
+            ($0.fromPerson == target.id && $0.toPerson == source.id && $0.type == .child) ||
+            ($0.fromPerson == source.id && $0.toPerson == target.id && $0.type == .child)
+        }
+        
+        if let childRelation = childRelations.first {
+            if childRelation.fromPerson == target.id {
+                // 对方是自己的父母
+                return RelationshipTitleMapper.getParentTitle(gender: target.gender)
+            }
+        }
+        
+        return nil
+    }
+    
+    // 查找子女称谓
+    private func findChildTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let children = getChildren(source.id)
+        if children.contains(where: { $0.id == target.id }) {
+            return RelationshipTitleMapper.getChildTitle(gender: target.gender)
+        }
+        
+        return nil
+    }
+    
+    // 查找兄弟姐妹称谓
+    private func findSiblingTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let siblings = getSiblings(source.id)
+        if siblings.contains(where: { $0.id == target.id }) {
+            // 确定是兄/弟还是姐/妹
+            if target.gender == .male {
+                // 判断年龄关系
+                let isOlder = isOlder(target, than: source) ?? false
+                return RelationshipTitleMapper.getBrotherTitle(isOlder: isOlder)
+            } else if target.gender == .female {
+                let isOlder = isOlder(target, than: source) ?? false
+                return RelationshipTitleMapper.getSisterTitle(isOlder: isOlder)
+            } else {
+                return "兄弟姐妹"
+            }
+        }
+        
+        return nil
+    }
+    
+    // 查找配偶称谓
+    private func findSpouseTitle(from source: Person, to target: Person) -> String? {
+        // 使用直接关系查询
+        let spouses = getSpouses(source.id)
+        if spouses.contains(where: { $0.id == target.id }) {
+            return RelationshipTitleMapper.getSpouseTitle(gender: target.gender)
+        }
+        
+        return nil
     }
 }
 

@@ -48,7 +48,29 @@ class PersonManagementViewModel: ObservableObject {
     
     // 修改 setupBindings 方法，添加 titleGenerator 更新逻辑
     private func setupBindings() {
-        // 保持现有的绑定逻辑
+        // 监听状态变化
+        stateManager.$state
+            .sink { [weak self] newState in
+                guard let self = self else { return }
+                // 更新本地数据
+                self.persons = newState.persons
+                self.relationships = newState.relationships
+                
+                // 如果选中的人物不在当前人物列表中，则清除选择
+                if let selectedPerson = self.selectedPerson,
+                   !newState.persons.contains(where: { $0.id == selectedPerson.id }) {
+                    self.selectedPerson = nil
+                } else {
+                    self.selectedPerson = newState.selectedPerson
+                }
+                
+                // 更新称谓生成器
+                self.titleGenerator = RelativeTitleGenerator(
+                    relationships: newState.relationships,
+                    persons: newState.persons
+                )
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Private Methods
@@ -267,7 +289,6 @@ extension PersonManagementViewModel {
         
         // 如果需要添加关系，确保有目标人物
         if let relationType = relationType, let targetPerson = targetPerson {
-            print("✅ 开始添加关系：从 \(newPerson.firstName) 到 \(targetPerson.firstName)，类型：\(relationType)")
             
             // 根据关系类型调整关系方向
             switch relationType {
@@ -284,16 +305,16 @@ extension PersonManagementViewModel {
                 try await stateManager.addRelationship(Relationship(
                     id: UUID(),
                     type: .child,  // 子女关系
-                    fromPerson: targetPerson.id,
-                    toPerson: newPerson.id
+                    fromPerson: newPerson.id,
+                    toPerson: targetPerson.id
                 ))
                 
                 // 添加反向关系（父亲或母亲）
                 try await stateManager.addRelationship(Relationship(
                     id: UUID(),
                     type: correctRelationType,  // 使用正确的父/母关系类型
-                    fromPerson: newPerson.id,
-                    toPerson: targetPerson.id
+                    fromPerson: targetPerson.id,
+                    toPerson: newPerson.id
                 ))
                 
                 // 检查是否存在另一个父母，如果存在则添加配偶关系
@@ -455,7 +476,6 @@ extension PersonManagementViewModel {
                 }
             }
             
-            print("✅ 关系添加成功")
         }
         
         // 添加关系后通知 appViewModel 刷新数据

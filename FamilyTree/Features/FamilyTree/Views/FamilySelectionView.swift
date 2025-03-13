@@ -90,7 +90,6 @@ struct FamilySelectionView: View {
                 .navigationBarBackButtonHidden()
                 .interactiveDismissDisabled()
                 .onAppear {
-                    print("📝 切换到家谱：\(family.name)")
                     Task {
                         await appViewModel.familyManager.switchFamily(family)
                     }
@@ -107,7 +106,6 @@ struct FamilySelectionView: View {
                         await appViewModel.familyManager.loadMemberCount(for: family.id)
                     }
                 }
-                print("📊 显示家谱卡片：\(family.name)")
             }
         }
     }
@@ -184,20 +182,16 @@ struct FamilySelectionView: View {
     }
     
     private func loadInitialData() async {
-        print("🔍 FamilySelectionView - loadInitialData 开始")
         do {
             await appViewModel.familyManager.loadFamilies()
             
             if let defaultFamily = appViewModel.familyManager.families.first(where: { $0.isDefault }) {
-                print("🔍 FamilySelectionView - 切换到默认家谱: \(defaultFamily.name)")
                 await appViewModel.familyManager.switchFamily(defaultFamily)  // 修改这里
             }
         } catch {
-            print("❌ FamilySelectionView - 加载失败：\(error.localizedDescription)")
             appViewModel.errorMessage = error.localizedDescription
             showingError = true
         }
-        print("🔍 FamilySelectionView - loadInitialData 结束")
     }
     
     

@@ -14,15 +14,45 @@ struct ContentView: View {
     // 添加一个状态来控制图谱视图的显示
     @State private var graphViewCreated = false
     
+    // 添加状态控制返回确认对话框
+    @State private var showingReturnConfirmation = false
+    
     var body: some View {
         TabView(selection: $coordinator.currentScreen) {
             // 家谱视图
-            FamilyTreeView()
-                .environmentObject(appViewModel)
-                .tabItem {
-                    Label("家谱", systemImage: "tree")
+            VStack(spacing: 0) {
+                // 自定义导航栏
+                
+                HStack {
+                    Button(action: {
+                        showingReturnConfirmation = true
+                    }) {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            Text("返回")
+                        }
+                    }
+                    Spacer()
+                    
                 }
-                .tag(AppCoordinator.Screen.familyTree)
+                .overlay(alignment: .center) {
+                    if let family = appViewModel.currentFamily {
+                        Text(family.name)
+                            .font(.headline)
+                    }
+                }
+                .padding()
+                
+                // 主内容
+                FamilyTreeView()
+                    .environmentObject(appViewModel)
+            }
+            .background(Color.familyTheme.primary.opacity(0.1))
+            .tabItem {
+                Label("家谱", systemImage: "tree")
+            }
+            .tag(AppCoordinator.Screen.familyTree)
+            .navigationBarTitleDisplayMode(.inline) // 添加这一行，使标题更紧凑
             
             // 关系图视图
             Group {
@@ -56,17 +86,13 @@ struct ContentView: View {
             }
             .tag(AppCoordinator.Screen.members)
         }
-        .tabViewSidebarBottomBar(content: {
-            RoundedRectangle(cornerSize: .zero)
-        })
+        
         .onAppear {
             // 只在首次出现时加载数据
             if !initialDataLoaded {
                 Task {
-                    print("🔄 开始加载家谱数据")
                     await appViewModel.loadInitialData()
                     initialDataLoaded = true
-                    print("✅ 加载完成[\(appViewModel.currentFamily?.name ?? "无")]：\(appViewModel.persons.count) 个成员，\(appViewModel.relationships.count) 个关系")
                 }
             }
         }
@@ -77,7 +103,7 @@ struct ContentView: View {
             if oldValue == .familyTree || newValue == .familyTree {
                 Task {
                     if appViewModel.familyGraphViewModel.graphData == nil {
-                        print("📝 切换到家谱：\(appViewModel.currentFamily?.name ?? "未知")")
+                        
                         await appViewModel.familyGraphViewModel.loadData()
                     } else {
                         print("⏭️ 已有数据，跳过加载")
@@ -108,5 +134,20 @@ struct ContentView: View {
                 }
             }
         )
+        // 添加确认返回的对话框
+        .confirmationDialog(
+            "返回家谱选择",
+            isPresented: $showingReturnConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("返回", role: .destructive) {
+                // 返到家谱选择界面
+                dismiss()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("确定要返回家谱选择界面吗？")
+        }
+       
     }
 }

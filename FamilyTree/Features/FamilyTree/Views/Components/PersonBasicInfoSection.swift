@@ -34,13 +34,15 @@ private struct ReadOnlyPersonInfoView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else if !notes.isEmpty {
-                    Text(viewModel.state.basicInfo.notes)
+                    // 这里使用notes参数而不是viewModel.state.basicInfo.notes
+                    Text(notes)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(nil)
                 } else {
-                    Text(viewModel.displayTitle)
+                    // 优先使用appViewModel直接生成称谓，如果不可用则回退到displayTitle
+                    Text(viewModel.appViewModel?.generateTitle(for: viewModel.currentPerson ?? Person(familyId: UUID(), firstName: "", lastName: "", gender: .male)) ?? viewModel.displayTitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

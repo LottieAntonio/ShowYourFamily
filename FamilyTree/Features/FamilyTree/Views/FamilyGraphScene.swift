@@ -39,7 +39,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
         // 确保背景是白色
         self.backgroundColor = .white
         
-        print("初始视图设置完成，相机位置: \(String(describing: cameraNode?.position)), 缩放: \(String(describing: cameraNode?.xScale))")
     }
  
     // 处理平移手势
@@ -85,7 +84,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
             
             gesture.scale = 1.0
             
-            print("相机缩放设置为: \(constrainedScale)")
         }
     }
     
@@ -131,7 +129,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
             updateGraph(with: savedGraphData)
         }
         
-        print("Scene setup completed - Size: \(self.size)")
     }
     
    
@@ -176,7 +173,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
             self.adjustCameraToShowAllNodes()
         }
         
-        print("图谱更新完成，中心人物: \(graphData.centerPerson.name)，总节点数: \(graphNodes.count)")
     }
     
     // 优化调整相机方法，确保所有节点都可见
@@ -223,7 +219,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
         
         camera.run(SKAction.group([moveAction, scaleAction]))
         
-        print("自动调整相机 - 中心: (\(centerX), \(centerY)), 缩放: \(scale), 节点总数: \(graphNodes.count)")
     }
 
         // 处理所有家族关系的递归方法
@@ -654,7 +649,6 @@ class FamilyGraphScene: SKScene, UIGestureRecognizerDelegate {  // 添加协议�
         camera.setScale(scale)
         CATransaction.commit()
         
-        print("相机缩放设置为: \(scale)")
     }
 
     // 创建线条唯一标识符的方法
