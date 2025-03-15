@@ -7,21 +7,18 @@ private struct ReadOnlyPersonInfoView: View {
     
     var body: some View {
         HStack(spacing: 10) {
-            Button {
-                // 后续添加头像选择功能
-            } label: {
-                PersonAvatarView(
-                    person: viewModel.currentPerson ?? Person(
-                        familyId: UUID(),
-                        firstName: "",
-                        lastName: "",
-                        gender: .male
-                    ),
-                    size: 60,
-                    type: nil,
-                    isEditable: false
-                )
-            }
+            // 修改这里，移除Button，直接使用PersonAvatarView
+            PersonAvatarView(
+                person: viewModel.currentPerson ?? Person(
+                    familyId: UUID(),
+                    firstName: "",
+                    lastName: "",
+                    gender: .male
+                ),
+                size: 60,
+                type: nil,
+                isEditable: false
+            )
             
             VStack(alignment: .leading) {
                 Text("\(viewModel.state.basicInfo.lastName)\(viewModel.state.basicInfo.firstName)")
@@ -70,6 +67,7 @@ private struct ReadOnlyPersonInfoView: View {
 }
 
 // EditablePersonInfoView 组件
+// 在EditablePersonInfoView中修改
 private struct EditablePersonInfoView: View {
     let viewModel: PersonCardViewModel
     @Binding var lastName: String
@@ -80,23 +78,33 @@ private struct EditablePersonInfoView: View {
     @Binding var notes: String
     let dateFormatter: DateFormatter
     
+    // 移除这个状态，避免不必要的视图重建
+    // @State private var photoUpdateCounter = UUID()
+    
     var body: some View {
         VStack {
-            Button {
-                // 后续添加头像选择功能
-            } label: {
-                PersonAvatarView(
-                    person: viewModel.currentPerson ?? Person(
-                        familyId: UUID(),
-                        firstName: "",
-                        lastName: "",
-                        gender: .male
-                    ),
-                    size: 80,
-                    type: nil,
-                    isEditable: true
-                )
-            }
+            // 修改PersonAvatarView的使用方式
+            PersonAvatarView(
+                person: viewModel.currentPerson ?? Person(
+                    familyId: UUID(),
+                    firstName: "",
+                    lastName: "",
+                    gender: .male
+                ),
+                size: 80,
+                type: nil,
+                isEditable: true,
+                onPhotoSelected: { photoData in
+                    Task {
+                        print("开始更新照片到ViewModel")
+                        await viewModel.updatePhoto(data: photoData)
+                        print("照片已更新到ViewModel")
+                        // 不再增加计数器强制刷新
+                    }
+                }
+            )
+            // 移除动态ID，避免视图重建
+            // .id("avatar-\(viewModel.currentPerson?.id.uuidString ?? UUID().uuidString)-\(photoUpdateCounter)")
             
             HStack {
                 VStack(alignment: .leading) {

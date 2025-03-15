@@ -6,6 +6,7 @@ struct PersonCardState {
     var contacts: ContactInfo
     var events: [LifeEvent]
     var stories: [Story]
+    var photo: Data? // 添加照片数据属性
     
     struct BasicInfo {
         var firstName: String = ""
@@ -34,7 +35,8 @@ struct PersonCardState {
             basicInfo: BasicInfo(),
             contacts: ContactInfo(),
             events: [],
-            stories: []
+            stories: [],
+            photo: nil // 初始化为nil
         )
     }
     
@@ -57,7 +59,8 @@ struct PersonCardState {
                 qq: person.contacts?.qq ?? ""
             ),
             events: person.lifeEvents ?? [],
-            stories: person.stories ?? []
+            stories: person.stories ?? [],
+            photo: person.photo // 从Person对象获取照片数据
         )
     }
 }

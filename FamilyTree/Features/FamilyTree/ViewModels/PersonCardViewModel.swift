@@ -16,7 +16,7 @@ class PersonCardViewModel: ObservableObject {
     @Published private(set) var state: PersonCardState
     @Published var errorMessage: String?
     
-    private let person: Person?
+    private var person: Person?
     private let stateManager: StateManager
     weak var appViewModel: FamilyAppViewModel?  // 改为公开属性
     private let relationshipManager: RelationshipManager
@@ -117,10 +117,29 @@ class PersonCardViewModel: ObservableObject {
         }
         
         if case .add(let relationType) = mode {
-            let newPerson = createOrUpdatePerson()
+            var newPerson = createOrUpdatePerson()
             
             // 获取目标人物
             let targetPerson = self.targetPerson
+            
+            // 如果有临时图片ID，从ImagePickerManager中获取图片数据
+            if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
+               let tempId = UUID(uuidString: tempIdString),
+               let imageData = ImagePickerManager.shared.getImageData(for: tempId) {
+                
+                print("从临时ID获取图片数据: \(tempId)")
+                newPerson.photo = imageData
+                
+                // 使用后清除临时ID
+                UserDefaults.standard.removeObject(forKey: "TempPersonPhotoId")
+                
+                // 将图片数据从临时ID转移到新的personId
+                if let image = ImagePickerManager.shared.getImage(for: tempId) {
+                    ImagePickerManager.shared.clearCache(for: tempId)
+                    ImagePickerManager.shared.setImage(for: newPerson.id, image: image, data: imageData)
+                    print("图片数据已从临时ID转移到新personId: \(newPerson.id)")
+                }
+            }
             
             // 委托给 PersonManagementViewModel 处理添加人物和关系的逻辑
             if let personManager = appViewModel?.personManager {
@@ -171,6 +190,9 @@ class PersonCardViewModel: ObservableObject {
         person.birthDate = state.basicInfo.birthDate
         person.deathDate = state.basicInfo.deathDate
         person.notes = state.basicInfo.notes.isEmpty ? nil : state.basicInfo.notes
+        
+        // 使用state中的照片数据
+        person.photo = state.photo
         
         if state.contacts.isEnabled {
             person.contacts = Contacts(
@@ -471,6 +493,133 @@ class PersonCardViewModel: ObservableObject {
         if let appViewModel = appViewModel {
             await appViewModel.refreshData()
         }
+        
+        // 重新加载当前人物数据
+        await reloadData()
+        
+        // 强制刷新UI
+        objectWillChange.send()
+    }
+
+    // 修改updatePhoto方法
+    @MainActor
+    func updatePhoto(data: Data) async {
+        print("PersonCardViewModel.updatePhoto 开始执行，模式: \(mode)")
+        
+        switch mode {
+        case .add(let relationType):
+            print("Add模式: 更新state中的照片")
+            // 在add模式下，只更新state
+            var newState = state
+            newState.photo = data
+            state = newState
+            
+            // 强制刷新UI
+            objectWillChange.send()
+            
+            // 检查是否已有临时ID
+            if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
+               let tempId = UUID(uuidString: tempIdString) {
+                // 如果已有临时ID，则使用现有临时ID
+                print("Add模式: 使用现有临时ID: \(tempId)")
+                
+                // 将图片保存到ImagePickerManager中
+                if let image = UIImage(data: data) {
+                    ImagePickerManager.shared.setImage(for: tempId, image: image, data: data)
+                    print("Add模式: 更新临时ID的图片: \(tempId)")
+                    
+                    // 发送通知，让所有PersonAvatarView知道有新的临时图片
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("TempPhotoUpdated"),
+                        object: nil,
+                        userInfo: ["tempId": tempId, "forceRefresh": true]
+                    )
+                }
+            } else {
+                // 如果没有临时ID，则创建新的临时ID
+                let tempPersonId = UUID()
+                print("Add模式: 创建临时personId: \(tempPersonId)")
+                
+                // 将图片保存到ImagePickerManager中
+                if let image = UIImage(data: data) {
+                    ImagePickerManager.shared.setImage(for: tempPersonId, image: image, data: data)
+                    print("Add模式: 图片已保存到ImagePickerManager，tempPersonId: \(tempPersonId)")
+                    
+                    // 将临时ID保存到UserDefaults，以便在创建person时使用
+                    UserDefaults.standard.set(tempPersonId.uuidString, forKey: "TempPersonPhotoId")
+                    
+                    // 添加通知，让所有PersonAvatarView知道有新的临时图片
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("TempPhotoUpdated"),
+                        object: nil,
+                        userInfo: ["tempId": tempPersonId]
+                    )
+                }
+            }
+            
+            // 通知刷新
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshPersonData"), object: nil)
+            print("Add模式: 发送刷新通知")
+            
+        case .edit:
+            // 编辑模式的处理逻辑
+            guard var updatedPerson = currentPerson else {
+                print("错误: currentPerson为nil")
+                return
+            }
+            
+            // 立即更新本地person对象
+            updatedPerson.photo = data
+            self.person = updatedPerson
+            
+            // 立即更新state
+            var newState = state
+            newState.photo = data
+            state = newState
+            
+            // 强制刷新UI
+            objectWillChange.send()
+            print("本地状态已更新，开始保存到数据库")
+            
+            do {
+                // 异步更新数据库
+                try await stateManager.updatePerson(updatedPerson)
+                print("数据库更新成功")
+                
+                // 清除缓存
+                cachedTitle = nil
+                
+                // 清除ImagePickerManager中的缓存，确保下次从数据库重新加载
+                ImagePickerManager.shared.clearCache(for: updatedPerson.id)
+                
+                // 再次强制刷新UI
+                objectWillChange.send()
+                
+                // 通知appViewModel刷新数据
+                if let appViewModel = appViewModel {
+                    print("通知appViewModel刷新数据")
+                    await appViewModel.refreshData()
+                }
+                
+                // 重新加载数据以确保一致性
+                print("重新加载数据")
+                await reloadData()
+                
+                // 最后一次强制刷新UI
+                objectWillChange.send()
+                print("照片更新完成")
+            } catch {
+                errorMessage = "更新照片失败: \(error.localizedDescription)"
+                print("更新照片失败: \(error)")
+            }
+            
+        case .view:
+            // 查看模式下不应该调用此方法，但为了switch语句完整性添加此分支
+            print("警告: 在查看模式下尝试更新照片")
+            break
+        }
+        
+        print("照片已更新到ViewModel")
     }
 }
 

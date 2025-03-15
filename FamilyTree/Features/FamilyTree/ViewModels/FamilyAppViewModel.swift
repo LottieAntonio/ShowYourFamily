@@ -108,7 +108,6 @@ class FamilyAppViewModel: ObservableObject {
             try await (familyTreeTask, personManagerTask)
             
         } catch {
-            print("❌ 数据刷新失败：\(error.localizedDescription)")
             errorMessage = "数据刷新失败：\(error.localizedDescription)"
         }
     }
@@ -116,7 +115,6 @@ class FamilyAppViewModel: ObservableObject {
     func loadInitialData() async {
         // 防止重复加载
         if !persons.isEmpty && currentFamily != nil {
-            print("📱 数据已加载，跳过重复初始化")
             return
         }
         
@@ -136,7 +134,6 @@ class FamilyAppViewModel: ObservableObject {
                 await familyManager.switchFamily(firstFamily)
             }
         } catch {
-            print("❌ 初始数据加载失败：\(error.localizedDescription)")
             errorMessage = "初始数据加载失败：\(error.localizedDescription)"
         }
         

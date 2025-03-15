@@ -93,13 +93,9 @@ struct PersonCard: View {
                 print("❌ 取消设置自己")
             }
             Button("确定") {
-                print("✅ 确认设置自己")
                 Task {
-                    print("⏳ 开始执行 setSelfPerson")
                     try? await viewModel.setSelfPerson()
-                    print("⏳ 重新加载数据")
                     await viewModel.reloadData()  // 这里会使用 appViewModel 刷新数据
-                    print("✅ setSelfPerson 执行完成")
                     dismiss()
                 }
             }
@@ -114,26 +110,6 @@ struct PersonCard: View {
             }
         } message: {
             Text("已成功将此人设置为自己")
-        }
-        
-        // 添加删除确认对话框
-        .alert("确认删除", isPresented: $showingDeleteAlert) {
-            Button("取消", role: .cancel) { }
-            Button("删除", role: .destructive) {
-                if viewModel.currentPerson != nil {
-                    Task {
-                        do {
-                            try await viewModel.deletePerson()
-                            dismiss()
-                        } catch {
-                            viewModel.errorMessage = error.localizedDescription
-                            showingAlert = true
-                        }
-                    }
-                }
-            }
-        } message: {
-            Text("删除后将无法恢复，是否确认删除？")
         }
     }
     
@@ -152,10 +128,22 @@ struct PersonCard: View {
         Task {
             do {
                 try await viewModel.save()
-                // 使用viewModel的refreshData方法，而不是直接访问appViewModel
+                
+                // 添加延迟，确保数据完全更新
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                // 刷新数据
                 await viewModel.refreshData()
-                dismiss()
+                
+                // 再次延迟，确保UI更新
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3秒
+                
+                // 在主线程关闭视图
+                await MainActor.run {
+                    dismiss()
+                }
             } catch {
+                viewModel.errorMessage = error.localizedDescription
                 showingAlert = true
             }
         }

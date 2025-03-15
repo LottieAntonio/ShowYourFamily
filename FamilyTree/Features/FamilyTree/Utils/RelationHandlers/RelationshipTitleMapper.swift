@@ -296,7 +296,6 @@ class RelationshipTitleMapper {
     
     /// 获取简化的辈分称谓
     static func getSimplifiedGenerationTitle(generationDiff: Int, gender: Gender) -> String {
-        print("📝 生成简化称谓，辈分差异: \(generationDiff), 性别: \(gender)")
         
         if generationDiff > 0 {
             // 长辈

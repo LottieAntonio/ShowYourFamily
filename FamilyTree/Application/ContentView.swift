@@ -105,9 +105,7 @@ struct ContentView: View {
                     if appViewModel.familyGraphViewModel.graphData == nil {
                         
                         await appViewModel.familyGraphViewModel.loadData()
-                    } else {
-                        print("⏭️ 已有数据，跳过加载")
-                    }
+                    } 
                 }
             }
         }

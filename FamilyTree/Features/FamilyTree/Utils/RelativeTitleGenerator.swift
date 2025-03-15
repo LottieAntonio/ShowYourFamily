@@ -92,18 +92,11 @@ class RelativeTitleGenerator {
             (relation.fromPerson == relative.id && relation.toPerson == selfPerson.id)
         }
         
-        // 打印调试信息
-        print("🔍 检查关系: \(selfPerson.name) -> \(relative.name)")
-        print("📊 找到直接关系数量: \(directRelations.count)")
-        for relation in directRelations {
-            print("📌 关系类型: \(relation.type), 方向: \(relation.fromPerson == selfPerson.id ? "自己->对方" : "对方->自己")")
-        }
-        
+       
         // 直接检查父子关系
         if let fatherRelation = directRelations.first(where: { 
             $0.type == .father && $0.fromPerson == relative.id && $0.toPerson == selfPerson.id 
         }) {
-            print("✅ 直接识别到父亲关系")
             let title = RelationshipTitleMapper.getParentTitle(gender: .male)
             titleCache[key] = title
             return title
@@ -112,7 +105,6 @@ class RelativeTitleGenerator {
         if let motherRelation = directRelations.first(where: { 
             $0.type == .mother && $0.fromPerson == relative.id && $0.toPerson == selfPerson.id 
         }) {
-            print("✅ 直接识别到母亲关系")
             let title = RelationshipTitleMapper.getParentTitle(gender: .female)
             titleCache[key] = title
             return title
@@ -121,7 +113,6 @@ class RelativeTitleGenerator {
         if let childRelation = directRelations.first(where: { 
             $0.type == .child && $0.fromPerson == selfPerson.id && $0.toPerson == relative.id 
         }) {
-            print("✅ 直接识别到子女关系")
             let title = RelationshipTitleMapper.getChildTitle(gender: relative.gender)
             titleCache[key] = title
             return title
@@ -133,28 +124,22 @@ class RelativeTitleGenerator {
         // 调整处理器调用顺序，优先处理直系关系
         if let title = directHandler.findDirectTitle(from: selfPerson, to: relative) {
             // 直接关系（父母、子女、兄弟姐妹）
-            print("✅ 找到直接关系: \(title)")
             baseTitle = title
         } else if let title = ancestorHandler.findAncestorTitle(from: selfPerson, to: relative) {
             // 祖辈关系（爷爷辈、外公外婆等）
-            print("✅ 找到祖辈关系: \(title)")
             baseTitle = title
         } else if let title = descendantHandler.findDescendantTitle(from: selfPerson, to: relative) {
             // 后代关系（孙子孙女等）
-            print("✅ 找到后代关系: \(title)")
             baseTitle = title
         } else if let title = collateralHandler.findCollateralTitle(from: selfPerson, to: relative) {
             // 旁系关系（堂/表兄弟姐妹、侄子女等）
-            print("✅ 找到旁系关系: \(title)")
             baseTitle = title
         } else if let title = marriageHandler.findMarriageTitle(from: selfPerson, to: relative) {
             // 姻亲关系
-            print("✅ 找到姻亲关系: \(title)")
             baseTitle = title
         } else {
             // 检查是否处理时间过长
             if Date().timeIntervalSince(startTime) > maxProcessTime {
-                print("⚠️ 称谓生成超时: \(selfPerson.name) -> \(relative.name)")
                 return "关系复杂"
             }
 //            
@@ -165,7 +150,6 @@ class RelativeTitleGenerator {
 //            }
             
             // 如果简化称谓也找不到，返回名字
-            print("❌ 未找到关系: \(selfPerson.name) -> \(relative.name)")
             return "\(relative.name)"
         }
         
@@ -194,19 +178,16 @@ class RelativeTitleGenerator {
     
     // 计算辈分差异
     private func calculateGenerationDifference(from source: Person, to target: Person) -> Int {
-        print("🔍 开始计算辈分差异: \(source.name) -> \(target.name)")
         
         // 尝试直接判断是否为祖父母关系
         let grandparents = directHandler.getGrandparents(source.id)
         if grandparents.contains(where: { $0.id == target.id }) {
-            print("👴👵 检测到祖父母关系")
             return 2  // 祖父母比自己大两辈
         }
         
         // 尝试直接判断是否为孙辈关系
         let grandchildren = directHandler.getGrandchildren(source.id)
         if grandchildren.contains(where: { $0.id == target.id }) {
-            print("👶 检测到孙辈关系")
             return -2  // 孙辈比自己小两辈
         }
         
@@ -238,7 +219,6 @@ class RelativeTitleGenerator {
         
         // 辈分差异 = 目标辈分 - 源辈分
         let diff = targetGeneration - sourceGeneration
-        print("📊 计算的辈分差异: \(diff) (源: \(sourceGeneration), 目标: \(targetGeneration))")
         
         return diff
     }

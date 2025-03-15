@@ -3,33 +3,27 @@ import Foundation
 class DirectRelationHandler: BaseRelationHandler {
     func findDirectTitle(from source: Person, to target: Person) -> String? {
         // 添加调试日志
-        print("🔎 DirectRelationHandler 开始查找关系: \(source.name) -> \(target.name)")
         
         // 检查父母关系
         if let parentTitle = findParentTitle(from: source, to: target) {
-            print("👨‍👩‍👧 找到父母关系: \(parentTitle)")
             return parentTitle
         }
         
         // 检查子女关系
         if let childTitle = findChildTitle(from: source, to: target) {
-            print("👶 找到子女关系: \(childTitle)")
             return childTitle
         }
         
         // 检查兄弟姐妹关系
         if let siblingTitle = findSiblingTitle(from: source, to: target) {
-            print("👫 找到兄弟姐妹关系: \(siblingTitle)")
             return siblingTitle
         }
         
         // 检查配偶关系
         if let spouseTitle = findSpouseTitle(from: source, to: target) {
-            print("💑 找到配偶关系: \(spouseTitle)")
             return spouseTitle
         }
         
-        print("❌ DirectRelationHandler 未找到直接关系")
         return nil
     }
     

@@ -10,9 +10,22 @@
 		356BC18C2D3F4D32003505BC /* FamilyTree.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyTree.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		35D8D9DE2D85710D007F4D18 /* Exceptions for "FamilyTree" folder in "FamilyTree" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 356BC18B2D3F4D31003505BC /* FamilyTree */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		356BC18E2D3F4D32003505BC /* FamilyTree */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				35D8D9DE2D85710D007F4D18 /* Exceptions for "FamilyTree" folder in "FamilyTree" target */,
+			);
 			path = FamilyTree;
 			sourceTree = "<group>";
 		};
@@ -251,6 +264,8 @@
 				DEVELOPMENT_TEAM = 263UZWW396;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FamilyTree/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问您的相机以拍摄家庭成员照片";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -289,6 +304,8 @@
 				DEVELOPMENT_TEAM = 263UZWW396;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FamilyTree/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问您的相机以拍摄家庭成员照片";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

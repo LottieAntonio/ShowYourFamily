@@ -42,7 +42,6 @@ class BaseRelationHandler {
     
     // 构建缓存
     private func buildCache() {
-        print("🔄 开始构建关系缓存...")
         // 预先计算并缓存常用关系
         for person in persons {
             // 缓存父母关系
@@ -59,7 +58,6 @@ class BaseRelationHandler {
             // 缓存兄弟姐妹关系 - 使用已有的getSiblings方法但跳过缓存检查
             siblingCache[person.id] = findSiblingsDirectly(person.id)
         }
-        print("✅ 缓存构建完成")
     }
     
     // 直接查找子女（不使用缓存）
@@ -155,26 +153,19 @@ class BaseRelationHandler {
             return cached
         }
         
-        print("🔍 开始查找 \(getPersonName(personId)) 的父亲...")
-        
-        // 打印所有关系进行调试
-        print("📋 所有关系数量: \(relationships.count)")
         
         // 检查所有关系，查找可能的父亲关系
         for (index, relation) in relationships.enumerated() {
-            print("🔄 检查关系 #\(index): 类型=\(relation.type), 从=\(getPersonName(relation.fromPerson)), 到=\(getPersonName(relation.toPerson))")
             
             // 检查是否是父子关系
             if relation.fromPerson == personId && relation.type == .father {
                 if let father = persons.first(where: { $0.id == relation.toPerson }) {
-                    print("✅ 找到父亲关系(子->父): \(father.name)")
                     return father
                 }
             }
             
             if relation.toPerson == personId && relation.type == .father {
                 if let father = persons.first(where: { $0.id == relation.fromPerson }) {
-                    print("✅ 找到父亲关系(父->子): \(father.name)")
                     return father
                 }
             }
@@ -182,20 +173,17 @@ class BaseRelationHandler {
             // 检查是否是子女关系
             if relation.fromPerson == personId && relation.type == .child {
                 if let potentialFather = persons.first(where: { $0.id == relation.toPerson && $0.gender == .male }) {
-                    print("✅ 找到父亲关系(通过子女关系): \(potentialFather.name)")
                     return potentialFather
                 }
             }
             
             if relation.toPerson == personId && relation.type == .child {
                 if let potentialFather = persons.first(where: { $0.id == relation.fromPerson && $0.gender == .male }) {
-                    print("✅ 找到父亲关系(通过子女关系反向): \(potentialFather.name)")
                     return potentialFather
                 }
             }
         }
         
-        print("❌ 未找到 \(getPersonName(personId)) 的父亲")
         return nil
     }
     
@@ -214,7 +202,6 @@ class BaseRelationHandler {
             return cached
         }
         
-        print("🔍 开始查找 \(getPersonName(personId)) 的母亲...")
         
         // 查找母亲关系 - 考虑两种方向
         // 1. 母亲指向子女的关系
@@ -226,18 +213,15 @@ class BaseRelationHandler {
              persons.first(where: { $0.id == relation.fromPerson })?.gender == .female)
         }
         
-        print("📊 找到母亲关系数量: \(motherRelations.count)")
         for (index, relation) in motherRelations.enumerated() {
             let motherName = relation.type == .mother ? 
                 getPersonName(relation.toPerson) : getPersonName(relation.fromPerson)
-            print("  #\(index): 类型=\(relation.type), 母亲=\(motherName)")
         }
         
         if let motherRelation = motherRelations.first {
             let motherId = motherRelation.type == .mother ? 
                            motherRelation.toPerson : motherRelation.fromPerson
             if let mother = persons.first(where: { $0.id == motherId }) {
-                print("👩 找到母亲关系: \(mother.name) -> \(getPersonName(personId))")
                 
                 // 添加到缓存
                 if parentCache[personId] == nil {
@@ -249,7 +233,6 @@ class BaseRelationHandler {
             }
         }
         
-        print("❌ 未找到 \(getPersonName(personId)) 的母亲")
         return nil
     }
     
@@ -345,52 +328,29 @@ class BaseRelationHandler {
     // 查找一个人的祖父母
     // 获取一个人的所有祖父母
     func getGrandparents(_ personId: UUID) -> [Person] {
-        print("🔍 开始查找 \(getPersonName(personId)) 的祖父母...")
         var grandparents: [Person] = []
         
         // 通过父亲查找祖父母
         if let father = getFather(personId) {
-            print("👨 找到父亲: \(father.name)")
             
             if let grandfather = getFather(father.id) {
-                print("👴 找到父系祖父: \(grandfather.name)")
                 grandparents.append(grandfather)
-            } else {
-                print("❌ 未找到父系祖父")
             }
             
             if let grandmother = getMother(father.id) {
-                print("👵 找到父系祖母: \(grandmother.name)")
                 grandparents.append(grandmother)
-            } else {
-                print("❌ 未找到父系祖母")
             }
-        } else {
-            print("❌ 未找到父亲")
         }
-        
         // 通过母亲查找祖父母
         if let mother = getMother(personId) {
-            print("👩 找到母亲: \(mother.name)")
             
             if let grandfather = getFather(mother.id) {
-                print("👴 找到母系祖父: \(grandfather.name)")
                 grandparents.append(grandfather)
-            } else {
-                print("❌ 未找到母系祖父")
             }
-            
             if let grandmother = getMother(mother.id) {
-                print("👵 找到母系祖母: \(grandmother.name)")
                 grandparents.append(grandmother)
-            } else {
-                print("❌ 未找到母系祖母")
             }
-        } else {
-            print("❌ 未找到母亲")
-        }
-        
-        print("📊 找到祖父母数量: \(grandparents.count)")
+        } 
         return grandparents
     }
     
