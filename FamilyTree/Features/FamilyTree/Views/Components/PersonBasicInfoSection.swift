@@ -15,7 +15,7 @@ private struct ReadOnlyPersonInfoView: View {
                     lastName: "",
                     gender: .male
                 ),
-                size: 60,
+                size: 50,
                 type: nil,
                 isEditable: false
             )
@@ -52,12 +52,12 @@ private struct ReadOnlyPersonInfoView: View {
             Image(systemName: "chevron.right")
                 .foregroundStyle(.secondary)
         }
-        .padding()
+        .padding(8)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.familyTheme.secondary.opacity(0.3))
+                .fill(.ultraThickMaterial.opacity(0.5))
                 .shadow(
-                    color: Color.familyTheme.primary.opacity(0.10),
+                    color: Color.familyTheme.primary.opacity(0.3),
                     radius: 8,
                     x: 0,
                     y: 4
@@ -247,12 +247,6 @@ struct PersonBasicInfoSection: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(.clear)
             VStack(alignment: .center, spacing: 20) {
-                if !viewModel.isEditable {
-                    FamilySealView(
-                        lastName: viewModel.state.basicInfo.lastName,
-                        totalMembers: viewModel.totalPersonsCount
-                    )
-                }
                 
                 if viewModel.isEditable {
                     EditablePersonInfoView(

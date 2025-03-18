@@ -161,14 +161,13 @@ private struct PersonItemView: View {
         Button(action: onTap) {
             HStack(spacing: 8) {
                 // 添加头像
-                Circle()
-                    .fill(Color.familyTheme.gradientFor(type))
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Text(person.name.prefix(1))
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.white)
-                    )
+                // 将原来的Circle和Text替换为PersonAvatarView
+                PersonAvatarView(
+                    person: person,
+                    size: 32,
+                    type: type,
+                    isEditable: false
+                )
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {

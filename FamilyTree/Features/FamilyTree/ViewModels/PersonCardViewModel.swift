@@ -9,6 +9,7 @@
 
 import SwiftUI
 import Foundation
+import UIKit
 
 // 修改 PersonCardViewModel 以使用 RelationshipManager
 @MainActor
@@ -525,8 +526,19 @@ class PersonCardViewModel: ObservableObject {
                 
                 // 将图片保存到ImagePickerManager中
                 if let image = UIImage(data: data) {
+                    // 开始编辑状态，确保可以恢复
+                    ImagePickerManager.shared.beginEditing(for: tempId)
+                    
+                    // 更新图片
                     ImagePickerManager.shared.setImage(for: tempId, image: image, data: data)
                     print("Add模式: 更新临时ID的图片: \(tempId)")
+                    
+                    // 标记图片用途
+                    ImagePickerManager.shared.markImageUsage(for: tempId, usage: "avatar")
+                    ImagePickerManager.shared.markImageUsage(for: tempId, usage: "background")
+                    
+                    // 完成编辑状态
+                    ImagePickerManager.shared.finishEditing(for: tempId)
                     
                     // 发送通知，让所有PersonAvatarView知道有新的临时图片
                     NotificationCenter.default.post(
@@ -542,8 +554,19 @@ class PersonCardViewModel: ObservableObject {
                 
                 // 将图片保存到ImagePickerManager中
                 if let image = UIImage(data: data) {
+                    // 开始编辑状态
+                    ImagePickerManager.shared.beginEditing(for: tempPersonId)
+                    
+                    // 设置图片
                     ImagePickerManager.shared.setImage(for: tempPersonId, image: image, data: data)
                     print("Add模式: 图片已保存到ImagePickerManager，tempPersonId: \(tempPersonId)")
+                    
+                    // 标记图片用途
+                    ImagePickerManager.shared.markImageUsage(for: tempPersonId, usage: "avatar")
+                    ImagePickerManager.shared.markImageUsage(for: tempPersonId, usage: "background")
+                    
+                    // 完成编辑状态
+                    ImagePickerManager.shared.finishEditing(for: tempPersonId)
                     
                     // 将临时ID保存到UserDefaults，以便在创建person时使用
                     UserDefaults.standard.set(tempPersonId.uuidString, forKey: "TempPersonPhotoId")
@@ -568,47 +591,72 @@ class PersonCardViewModel: ObservableObject {
                 return
             }
             
-            // 立即更新本地person对象
+            // 开始编辑状态，备份当前图片
+            ImagePickerManager.shared.beginEditing(for: updatedPerson.id)
+            
+            // 1. 先保存图片到缓存，确保UI立即显示新图片
+            if let image = UIImage(data: data) {
+                ImagePickerManager.shared.setImage(for: updatedPerson.id, image: image, data: data)
+                
+                // 标记图片用途
+                ImagePickerManager.shared.markImageUsage(for: updatedPerson.id, usage: "avatar")
+                ImagePickerManager.shared.markImageUsage(for: updatedPerson.id, usage: "background")
+                
+                print("立即更新缓存中的图片: \(updatedPerson.id)")
+            }
+            
+            // 2. 立即更新本地person对象和state
             updatedPerson.photo = data
             self.person = updatedPerson
             
-            // 立即更新state
             var newState = state
             newState.photo = data
             state = newState
             
-            // 强制刷新UI
+            // 3. 强制刷新UI
             objectWillChange.send()
             print("本地状态已更新，开始保存到数据库")
             
             do {
-                // 异步更新数据库
+                // 4. 异步更新数据库
                 try await stateManager.updatePerson(updatedPerson)
                 print("数据库更新成功")
                 
-                // 清除缓存
+                // 完成编辑状态
+                ImagePickerManager.shared.finishEditing(for: updatedPerson.id)
+                
+                // 5. 清除缓存标记
                 cachedTitle = nil
                 
-                // 清除ImagePickerManager中的缓存，确保下次从数据库重新加载
-                ImagePickerManager.shared.clearCache(for: updatedPerson.id)
-                
-                // 再次强制刷新UI
-                objectWillChange.send()
-                
-                // 通知appViewModel刷新数据
-                if let appViewModel = appViewModel {
-                    print("通知appViewModel刷新数据")
-                    await appViewModel.refreshData()
+                // 6. 发送通知，通知所有视图更新图片
+                // 使用主线程发送通知，确保UI更新在主线程进行
+                DispatchQueue.main.async {
+                    // 发送特殊通知，表明这是编辑器中编辑的图片
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("EditorImageUpdated"),
+                        object: nil,
+                        userInfo: ["personId": updatedPerson.id, "forceRefresh": true]
+                    )
+                    
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("RefreshPersonData"), 
+                        object: nil,
+                        userInfo: ["personId": updatedPerson.id, "forceRefresh": true]
+                    )
+                    print("发送刷新通知，通知所有视图更新图片")
                 }
                 
-                // 重新加载数据以确保一致性
-                print("重新加载数据")
-                await reloadData()
+                // 7. 通知appViewModel刷新数据
+                await appViewModel?.refreshData()
+                print("通知appViewModel刷新数据")
                 
-                // 最后一次强制刷新UI
+                // 8. 再次强制刷新UI
                 objectWillChange.send()
                 print("照片更新完成")
             } catch {
+                // 更新失败，取消编辑状态，恢复原始图片
+                ImagePickerManager.shared.cancelEditing(for: updatedPerson.id)
+                
                 errorMessage = "更新照片失败: \(error.localizedDescription)"
                 print("更新照片失败: \(error)")
             }

@@ -17,51 +17,167 @@ class ImagePickerManager: ObservableObject {
     // 添加一个时间戳来跟踪最后更新时间
     private var lastUpdateTimestamps: [UUID: Date] = [:]
     
+    // 添加图片用途标记，用于跟踪图片是否已被用作头像或背景
+    private var imageUsage: [UUID: Set<String>] = [:]
+    
+    // 添加编辑状态跟踪
+    private var editingStates: [UUID: Bool] = [:]
+    // 添加编辑前的备份图片
+    private var editBackupImages: [UUID: UIImage] = [:]
+    private var editBackupData: [UUID: Data] = [:]
+    
+    // 添加图片来源标记，用于跟踪图片的来源（数据库或临时）
+    private var imageSource: [UUID: String] = [:]
+    
     private init() {}
     
-    func setImage(for personId: UUID, image: UIImage, data: Data) {
+    func setImage(for personId: UUID, image: UIImage, data: Data, source: String = "cache") {
         personImages[personId] = image
         personImageData[personId] = data
         lastUpdateTimestamps[personId] = Date()
+        imageSource[personId] = source
         
         // 发布更新通知
         lastUpdatedPersonId = personId
-        print("ImagePickerManager: 已更新图片，personId: \(personId)")
+        print("ImagePickerManager: 已更新图片，personId: \(personId), 来源: \(source)")
+        
+        // 发送通知，让所有依赖此图片的视图更新
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ImageUpdated"),
+            object: nil,
+            userInfo: ["personId": personId, "source": source]
+        )
+    }
+    
+    // 标记图片用途
+    func markImageUsage(for personId: UUID, usage: String) {
+        if imageUsage[personId] == nil {
+            imageUsage[personId] = []
+        }
+        imageUsage[personId]?.insert(usage)
+    }
+    
+    // 检查图片用途
+    func isImageUsedFor(personId: UUID, usage: String) -> Bool {
+        return imageUsage[personId]?.contains(usage) ?? false
     }
     
     func getImage(for personId: UUID) -> UIImage? {
-        return personImages[personId]
+        if let image = personImages[personId] {
+            print("使用缓存的图片，personId: \(personId)")
+            return image
+        }
+        return nil
     }
     
     func getImageData(for personId: UUID) -> Data? {
         return personImageData[personId]
     }
     
-    // 添加清除特定人物图片缓存的方法
+    // 获取图片来源
+    func getImageSource(for personId: UUID) -> String {
+        return imageSource[personId] ?? "unknown"
+    }
+    
+    // 添加开始编辑方法
+    func beginEditing(for personId: UUID) {
+        // 备份当前图片
+        if let image = personImages[personId], let data = personImageData[personId] {
+            editBackupImages[personId] = image
+            editBackupData[personId] = data
+            print("已备份编辑前的图片，personId: \(personId)")
+        }
+        
+        editingStates[personId] = true
+        print("开始编辑图片，personId: \(personId)")
+    }
+    
+    // 添加取消编辑方法
+    func cancelEditing(for personId: UUID) {
+        // 恢复备份的图片
+        if let image = editBackupImages[personId], let data = editBackupData[personId] {
+            personImages[personId] = image
+            personImageData[personId] = data
+            print("已恢复编辑前的图片，personId: \(personId)")
+            
+            // 发送通知
+            lastUpdatedPersonId = personId
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ImageUpdated"),
+                object: nil,
+                userInfo: ["personId": personId, "restored": true]
+            )
+        }
+        
+        // 清除编辑状态
+        editingStates[personId] = false
+        editBackupImages.removeValue(forKey: personId)
+        editBackupData.removeValue(forKey: personId)
+        print("已取消编辑，personId: \(personId)")
+    }
+    
+    // 添加完成编辑方法
+    func finishEditing(for personId: UUID) {
+        // 清除编辑状态和备份
+        editingStates[personId] = false
+        editBackupImages.removeValue(forKey: personId)
+        editBackupData.removeValue(forKey: personId)
+        print("已完成编辑，personId: \(personId)")
+    }
+    
+    // 检查是否正在编辑
+    func isEditing(personId: UUID) -> Bool {
+        return editingStates[personId] ?? false
+    }
+    
+    // 修改清除缓存方法，添加更多保护
     func clearCache(for personId: UUID) {
+        // 如果正在编辑，不清除缓存
+        if editingStates[personId] == true {
+            print("正在编辑图片，跳过清除缓存: \(personId)")
+            return
+        }
+        
+        // 检查是否有最近更新的图片数据
+        if let timestamp = lastUpdateTimestamps[personId], 
+           Date().timeIntervalSince(timestamp) < 5.0 {
+            print("图片刚刚更新，跳过清除缓存: \(personId)")
+            return
+        }
+        
         personImages.removeValue(forKey: personId)
         personImageData.removeValue(forKey: personId)
         lastUpdateTimestamps.removeValue(forKey: personId)
+        imageSource.removeValue(forKey: personId)
+        imageUsage.removeValue(forKey: personId)
         print("ImagePickerManager: 已清除缓存，personId: \(personId)")
     }
     
-    // 添加清除所有缓存的方法
-    func clearAllCache() {
-        personImages.removeAll()
-        personImageData.removeAll()
-        lastUpdateTimestamps.removeAll()
-        print("ImagePickerManager: 已清除所有缓存")
-    }
-    
-    // 添加一个方法来检查缓存是否过期
-    func isCacheValid(for personId: UUID, maxAgeSeconds: TimeInterval = 5) -> Bool {
-        guard let timestamp = lastUpdateTimestamps[personId] else {
-            return false
+    // 添加一个方法，从数据库强制刷新图片
+    func refreshFromDatabase(for personId: UUID, photoData: Data?) {
+        // 如果正在编辑，不刷新
+        if editingStates[personId] == true {
+            print("正在编辑图片，跳过从数据库刷新: \(personId)")
+            return
         }
         
-        let now = Date()
-        let age = now.timeIntervalSince(timestamp)
-        return age <= maxAgeSeconds
+        // 如果有数据，更新缓存
+        if let data = photoData, let image = UIImage(data: data) {
+            setImage(for: personId, image: image, data: data, source: "database")
+            print("从数据库刷新图片到缓存，personId: \(personId)")
+        } else {
+            // 如果没有数据，清除缓存
+            clearCache(for: personId)
+        }
+    }
+    
+    // 添加一个方法检查缓存是否有效
+    func isCacheValid(for personId: UUID) -> Bool {
+        if let timestamp = lastUpdateTimestamps[personId] {
+            // 如果缓存时间在30分钟内，认为有效
+            return Date().timeIntervalSince(timestamp) < 1800.0
+        }
+        return false
     }
 }
 
@@ -94,239 +210,242 @@ struct PersonAvatarView: View {
     @EnvironmentObject private var appViewModel: FamilyAppViewModel
     
     var body: some View {
+        avatarButton
+            .disabled(!isEditable)
+            .sheet(isPresented: $showPicker, onDismiss: handlePickerDismiss) {
+                PhotoPickerSheet(
+                    selectedItem: $selectedItem,
+                    onCameraCapture: handleCameraCapture
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .fullScreenCover(isPresented: $showImageEditor, onDismiss: handleEditorDismiss) {
+                ImageEditorView(image: $imageToEdit, onCancel: {
+                    // 用户点击取消按钮
+                    print("用户点击了取消按钮，恢复原始图片")
+                    pickerManager.cancelEditing(for: person.id)
+                    imageToEdit = nil
+                    showImageEditor = false
+                }) { editedImage in
+                    handleEditedImage(editedImage)
+                }
+//                .edgesIgnoringSafeArea(.all)
+            }
+            .onChange(of: selectedItem) { _, newItem in
+                handleSelectedItemChange(newItem)
+            }
+            .onChange(of: pickerManager.lastUpdatedPersonId) { _, updatedId in
+                handleImageUpdate(updatedId)
+            }
+            .onAppear {
+                handleOnAppear()
+            }
+            .onDisappear {
+                print("PersonAvatarView消失，personId: \(person.id)")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TempPhotoUpdated"))) { notification in
+                handleTempPhotoUpdate(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("EditorImageUpdated"))) { notification in
+                handleEditorImageUpdate(notification)
+            }
+    }
+
+    // 添加处理编辑后图片的方法
+    private func handleEditedImage(_ editedImage: UIImage) {
+        print("图片编辑完成，personId: \(person.id)")
+        
+        if let imageData = editedImage.jpegData(compressionQuality: 0.8) {
+            // 判断是否是add模式
+            let isAddMode = person.id == UUID.init(uuidString: "00000000-0000-0000-0000-000000000000")
+            
+            if isAddMode {
+                handleAddModeImageEdit(editedImage, imageData)
+            } else {
+                handleNormalModeImageEdit(editedImage, imageData)
+            }
+        }
+        
+        // 重置状态
+        imageToEdit = nil
+        showImageEditor = false
+    }
+    
+    private func handleAddModeImageEdit(_ editedImage: UIImage, _ imageData: Data) {
+        // 在add模式下，检查是否已有临时ID
+        if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
+           let tempId = UUID(uuidString: tempIdString) {
+            // 使用现有的临时ID
+            print("Add模式: 使用现有临时ID: \(tempId)")
+            
+            // 保存到管理器
+            pickerManager.setImage(for: tempId, image: editedImage, data: imageData)
+            print("Add模式: 更新临时ID的图片: \(tempId)")
+            
+            callPhotoSelectedCallback(imageData)
+        } else {
+            // 如果没有临时ID，创建一个新的
+            let tempId = UUID()
+            print("Add模式: 创建新的临时ID: \(tempId)")
+            
+            // 保存到管理器
+            pickerManager.setImage(for: tempId, image: editedImage, data: imageData)
+            
+            // 更新UserDefaults中的临时ID
+            UserDefaults.standard.set(tempId.uuidString, forKey: "TempPersonPhotoId")
+            print("Add模式: 更新临时ID到UserDefaults: \(tempId)")
+            
+            callPhotoSelectedCallback(imageData)
+        }
+    }
+    
+    private func handleNormalModeImageEdit(_ editedImage: UIImage, _ imageData: Data) {
+        // 正常模式，保存到person的ID
+        pickerManager.setImage(for: person.id, image: editedImage, data: imageData)
+        
+        // 标记编辑完成
+        pickerManager.finishEditing(for: person.id)
+        
+        callPhotoSelectedCallback(imageData)
+    }
+    
+    private func callPhotoSelectedCallback(_ imageData: Data) {
+        // 调用回调
+        if let onPhotoSelected = onPhotoSelected {
+            print("调用onPhotoSelected回调")
+            onPhotoSelected(imageData)
+            
+            // 在回调完成后，手动触发一次数据刷新
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                print("手动触发数据刷新")
+                refreshID = UUID() // 强制刷新当前视图
+            }
+        } else {
+            print("警告: onPhotoSelected回调为nil")
+        }
+    }
+    
+    // MARK: - 子视图
+    
+    private var avatarButton: some View {
         Button(action: {
             if isEditable {
                 print("头像被点击，准备显示图片选择器，personId: \(person.id)")
+                pickerManager.beginEditing(for: person.id)
                 showPicker = true
             }
         }) {
-            // 在body中的ZStack内部修改图片显示逻辑
-            ZStack {
-                Circle()
-                    .fill(Color.familyTheme.gradientFor(type ?? .spouse))
-                    .frame(width: size, height: size)
-                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                
-                // 优先使用选择的图片，其次是person.photo
-                if let image = pickerManager.getImage(for: person.id) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()  // 使用scaledToFill确保图像填满整个区域
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
-                        .onAppear {
-                            print("显示personId的图片: \(person.id)")
-                        }
-                } else if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
-                          let tempId = UUID(uuidString: tempIdString),
-                          let image = pickerManager.getImage(for: tempId) {
-                    // 在add模式下，尝试从临时ID获取图片
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()  // 使用scaledToFill确保图像填满整个区域
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
-                        .onAppear {
-                            print("使用临时ID显示图片: \(tempId)")
-                        }
-                } else if let photoData = person.photo, let uiImage = UIImage(data: photoData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
-                } else if isEditable {
-                    Image(systemName: "camera.circle.fill")
-                        .foregroundStyle(.white)
-                        .font(.system(size: size * 0.5))
-                } else {
-                    Text(person.name.prefix(1))
-                        .font(.system(size: size * 0.4, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                
-                // 如果是可编辑状态，添加编辑指示器
-                if isEditable {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Image(systemName: "pencil.circle.fill")
-                                .font(.system(size: size * 0.3))
-                                .foregroundColor(.white)
-                                .background(Circle().fill(Color.blue))
-                                .offset(x: 5, y: 5)
-                        }
-                    }
-                    .frame(width: size, height: size)
-                }
-            }
-            .id(refreshID) // 使用ID修饰符来强制刷新视图
+            avatarContent
         }
-        .disabled(!isEditable)
-        .sheet(isPresented: $showPicker) {
-            PhotoPickerSheet(
-                selectedItem: $selectedItem,
-                onCameraCapture: { image in
-                    // 拍照后直接进入编辑模式
-                    imageToEdit = image
-                    showPicker = false
-                    showImageEditor = true
-                }
-            )
-            .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $showImageEditor) {
-            ImageEditorView(image: $imageToEdit) { editedImage in
-                print("图片编辑完成，personId: \(person.id)")
-                
-                if let imageData = editedImage.jpegData(compressionQuality: 0.8) {
-                    // 判断是否是add模式
-                    let isAddMode = person.id == UUID.init(uuidString: "00000000-0000-0000-0000-000000000000")
-                    
-                    if isAddMode {
-                        // 在add模式下，检查是否已有临时ID
-                        if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
-                           let tempId = UUID(uuidString: tempIdString) {
-                            // 使用现有的临时ID
-                            print("Add模式: 使用现有临时ID: \(tempId)")
-                            
-                            // 保存到管理器
-                            pickerManager.setImage(for: tempId, image: editedImage, data: imageData)
-                            print("Add模式: 更新临时ID的图片: \(tempId)")
-                            
-                            // 调用回调
-                            if let onPhotoSelected = onPhotoSelected {
-                                print("调用onPhotoSelected回调")
-                                onPhotoSelected(imageData)
-                                
-                                // 在回调完成后，手动触发一次数据刷新
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    print("手动触发数据刷新")
-                                    refreshID = UUID() // 强制刷新当前视图
-                                }
-                            } else {
-                                print("警告: onPhotoSelected回调为nil")
-                            }
-                        } else {
-                            // 如果没有临时ID，创建一个新的
-                            let tempId = UUID()
-                            print("Add模式: 创建新的临时ID: \(tempId)")
-                            
-                            // 保存到管理器
-                            pickerManager.setImage(for: tempId, image: editedImage, data: imageData)
-                            
-                            // 更新UserDefaults中的临时ID
-                            UserDefaults.standard.set(tempId.uuidString, forKey: "TempPersonPhotoId")
-                            print("Add模式: 更新临时ID到UserDefaults: \(tempId)")
-                            
-                            // 调用回调
-                            if let onPhotoSelected = onPhotoSelected {
-                                print("调用onPhotoSelected回调")
-                                onPhotoSelected(imageData)
-                                
-                                // 在回调完成后，手动触发一次数据刷新
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    print("手动触发数据刷新")
-                                    refreshID = UUID() // 强制刷新当前视图
-                                }
-                            } else {
-                                print("警告: onPhotoSelected回调为nil")
-                            }
-                        }
-                    } else {
-                        // 正常模式，保存到person的ID
-                        pickerManager.setImage(for: person.id, image: editedImage, data: imageData)
-                        
-                        // 调用回调
-                        if let onPhotoSelected = onPhotoSelected {
-                            print("调用onPhotoSelected回调")
-                            onPhotoSelected(imageData)
-                            
-                            // 在回调完成后，手动触发一次数据刷新
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                print("手动触发数据刷新")
-                                refreshID = UUID() // 强制刷新当前视图
-                            }
-                        } else {
-                            print("警告: onPhotoSelected回调为nil")
-                        }
-                    }
-                }
-                
-                // 重置状态
-                imageToEdit = nil
-            }
-        }
-        .onChange(of: selectedItem) { _, newItem in
-            if let newItem {
-                print("选择了新图片，开始加载，personId: \(person.id)")
-                
-                Task {
-                    do {
-                        if let data = try await newItem.loadTransferable(type: Data.self) {
-                            print("图片加载成功，大小: \(data.count) 字节")
-                            
-                            await MainActor.run {
-                                if let image = UIImage(data: data) {
-                                    // 从相册选择后进入编辑模式
-                                    imageToEdit = image
-                                    selectedItem = nil
-                                    showPicker = false
-                                    showImageEditor = true
-                                }
-                            }
-                        }
-                    } catch {
-                        print("图片加载失败: \(error.localizedDescription)")
-                        await MainActor.run {
-                            selectedItem = nil
-                            showPicker = false
-                        }
-                    }
-                }
-            }
-        }
-        .onChange(of: pickerManager.lastUpdatedPersonId) { _, updatedId in
-            if let updatedId = updatedId, updatedId == person.id {
-                print("检测到图片更新，刷新视图，personId: \(person.id)")
-                refreshID = UUID()
-            }
-        }
-        .onAppear {
-            print("PersonAvatarView出现，isEditable: \(isEditable), personId: \(person.id)")
+    }
+    
+    private var avatarContent: some View {
+        ZStack {
+            Circle()
+                .fill(Color.familyTheme.gradientFor(type ?? .spouse))
+                .frame(width: size, height: size)
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             
-            // 修改这里的逻辑，确保缓存与数据库同步
-            if let photoData = person.photo {
-                // 如果person有照片数据
-                if pickerManager.getImage(for: person.id) == nil || !pickerManager.isCacheValid(for: person.id) {
-                    // 如果缓存中没有图片或缓存已过期，则从person加载
-                    if let image = UIImage(data: photoData) {
-                        pickerManager.setImage(for: person.id, image: image, data: photoData)
-                        // 强制刷新视图
-                        refreshID = UUID()
-                        print("从数据库加载图片到缓存，personId: \(person.id)")
+            avatarImage
+            
+            // 如果是可编辑状态，添加编辑指示器
+            if isEditable {
+                editIndicator
+            }
+        }
+        .id(refreshID) // 使用ID修饰符来强制刷新视图
+    }
+    
+    // MARK: - 事件处理方法 (将在后续步骤实现)
+    
+    private func handlePickerDismiss() {
+        // 如果没有进入编辑器，说明用户取消了选择，需要恢复原始图片
+        if !showImageEditor {
+            print("用户取消了图片选择，恢复原始图片")
+            pickerManager.cancelEditing(for: person.id)
+        }
+    }
+    
+    private func handleEditorDismiss() {
+        // 如果 imageToEdit 仍然存在，说明用户取消了编辑，需要恢复原始图片
+        if imageToEdit != nil {
+            print("用户取消了图片编辑，恢复原始图片")
+            pickerManager.cancelEditing(for: person.id)
+            imageToEdit = nil
+        }
+    }
+    
+    private func handleCameraCapture(_ image: UIImage) {
+        // 拍照后直接进入编辑模式
+        imageToEdit = image
+        showPicker = false
+        showImageEditor = true
+    }
+    
+    private func handleSelectedItemChange(_ newItem: PhotosPickerItem?) {
+        if let newItem {
+            print("选择了新图片，开始加载，personId: \(person.id)")
+            
+            Task {
+                do {
+                    if let data = try await newItem.loadTransferable(type: Data.self) {
+                        print("图片加载成功，大小: \(data.count) 字节")
+                        
+                        await MainActor.run {
+                            if let image = UIImage(data: data) {
+                                // 从相册选择后进入编辑模式
+                                imageToEdit = image
+                                selectedItem = nil
+                                showPicker = false
+                                showImageEditor = true
+                            }
+                        }
                     }
-                } else {
-                    print("使用缓存的图片，personId: \(person.id)")
+                } catch {
+                    print("图片加载失败: \(error.localizedDescription)")
+                    await MainActor.run {
+                        selectedItem = nil
+                        showPicker = false
+                    }
+                }
+            }
+        }
+    }
+    private func handleImageUpdate(_ updatedId: UUID?) {
+        if let updatedId = updatedId, updatedId == person.id {
+            print("检测到图片更新，刷新视图，personId: \(person.id)")
+            refreshID = UUID()
+        }
+    }
+    
+    private func handleOnAppear() {
+        print("PersonAvatarView出现，isEditable: \(isEditable), personId: \(person.id)")
+        
+        // 确保缓存与数据库同步
+        if let photoData = person.photo {
+            // 如果person有照片数据
+            if pickerManager.getImage(for: person.id) == nil || !pickerManager.isCacheValid(for: person.id) {
+                // 如果缓存中没有图片或缓存已过期，则从person加载
+                if let image = UIImage(data: photoData) {
+                    pickerManager.setImage(for: person.id, image: image, data: photoData)
+                    // 强制刷新视图
+                    refreshID = UUID()
+                    print("从数据库加载图片到缓存，personId: \(person.id)")
                 }
             } else {
-                // 如果person没有照片数据，但缓存中有，则清除缓存
-                if pickerManager.getImage(for: person.id) != nil {
-                    pickerManager.clearCache(for: person.id)
-                    refreshID = UUID()
-                    print("清除过时的缓存图片，personId: \(person.id)")
-                }
+                print("使用缓存的图片，personId: \(person.id)")
+            }
+        } else {
+            // 如果person没有照片数据，但缓存中有，则清除缓存
+            if pickerManager.getImage(for: person.id) != nil {
+                pickerManager.clearCache(for: person.id)
+                refreshID = UUID()
+                print("清除过时的缓存图片，personId: \(person.id)")
             }
         }
-        // 添加一个onDisappear处理器来清理不需要的缓存
-        .onDisappear {
-            // 当视图消失时，考虑清除缓存以节省内存
-            // 这是可选的，取决于你的应用需求
-            print("PersonAvatarView消失，personId: \(person.id)")
-        }
-        // 修改onReceive方法
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TempPhotoUpdated"))) { notification in
+    }
+    
+    private func handleTempPhotoUpdate(_ notification: Notification) {
         if let tempId = notification.userInfo?["tempId"] as? UUID {
             print("收到临时图片更新通知，tempId: \(tempId)")
             
@@ -339,27 +458,83 @@ struct PersonAvatarView: View {
             // 强制刷新视图
             refreshID = UUID()
         }
-        }
-        // 在body中添加对新通知的监听
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("EditorImageUpdated"))) { notification in
+    }
+    
+    private func handleEditorImageUpdate(_ notification: Notification) {
         if let tempId = notification.userInfo?["tempId"] as? UUID,
-        let imageData = notification.userInfo?["imageData"] as? Data {
-        print("收到编辑器更新的图片通知，tempId: \(tempId)")
+           let imageData = notification.userInfo?["imageData"] as? Data {
+            print("收到编辑器更新的图片通知，tempId: \(tempId)")
+            
+            // 如果是add模式，直接使用这个图片数据
+            let isAddMode = person.id == UUID.init(uuidString: "00000000-0000-0000-0000-000000000000")
+            if isAddMode {
+                // 调用回调
+                if let onPhotoSelected = onPhotoSelected {
+                    print("调用onPhotoSelected回调，使用编辑器提供的图片数据")
+                    onPhotoSelected(imageData)
+                    
+                    // 强制刷新视图
+                    refreshID = UUID()
+                }
+            }
+        }
+    }
+    // 在 PersonAvatarView 结构体内添加
         
-        // 如果是add模式，直接使用这个图片数据
-        let isAddMode = person.id == UUID.init(uuidString: "00000000-0000-0000-0000-000000000000")
-        if isAddMode {
-        // 调用回调
-        if let onPhotoSelected = onPhotoSelected {
-        print("调用onPhotoSelected回调，使用编辑器提供的图片数据")
-        onPhotoSelected(imageData)
-        
-        // 强制刷新视图
-        refreshID = UUID()
+    private var avatarImage: some View {
+        Group {
+            if let image = pickerManager.getImage(for: person.id) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .onAppear {
+                        print("显示personId的图片: \(person.id)")
+                    }
+            } else if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
+                      let tempId = UUID(uuidString: tempIdString),
+                      let image = pickerManager.getImage(for: tempId) {
+                // 在add模式下，尝试从临时ID获取图片
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .onAppear {
+                        print("使用临时ID显示图片: \(tempId)")
+                    }
+            } else if let photoData = person.photo, let uiImage = UIImage(data: photoData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if isEditable {
+                Image(systemName: "camera.circle.fill")
+                    .foregroundStyle(.white)
+                    .font(.system(size: size * 0.5))
+            } else {
+                Text(person.name.prefix(1))
+                    .font(.system(size: size * 0.4, weight: .medium))
+                    .foregroundStyle(.white)
+            }
         }
+    }
+    
+    private var editIndicator: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Image(systemName: "pencil.circle.fill")
+                    .font(.system(size: size * 0.3))
+                    .foregroundColor(.white)
+                    .background(Circle().fill(Color.blue))
+                    .offset(x: 5, y: 5)
+            }
         }
-        }
-        }
+        .frame(width: size, height: size)
     }
 }
 
@@ -458,3 +633,5 @@ struct CameraView: UIViewControllerRepresentable {
         }
     }
 }
+
+
