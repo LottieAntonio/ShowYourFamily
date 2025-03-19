@@ -242,6 +242,29 @@ class PersonManagementViewModel: ObservableObject {
         return getRelatedPersons(for: otherParent, relationType: .spouse)
             .filter { $0.gender == (type == .father ? .male : .female) }
     }
+    
+    // 根据关系类型和目标人物获取默认的姓氏和性别
+    func getDefaultInfo(for relationType: RelationType, targetPerson: Person?) -> (lastName: String, gender: Person.Gender?) {
+        guard let targetPerson = targetPerson else {
+            // 如果没有目标人物，返回家谱默认值
+            return (stateManager.state.currentFamily?.defaultLastName ?? "", nil)
+        }
+        
+        switch relationType {
+        case .father:
+            return (targetPerson.lastName, .male)
+        case .mother:
+            return ("", .female)
+        case .child:
+            return (targetPerson.lastName, nil)
+        case .brother:
+            return (targetPerson.lastName, .male)
+        case .sister:
+            return (targetPerson.lastName, .female)
+        case .spouse:
+            return ("", targetPerson.gender == .male ? .female : .male)
+        }
+    }
 }
 
 // 添加扩展方法
@@ -482,3 +505,5 @@ extension PersonManagementViewModel {
         await appViewModel?.refreshData()
     }
 }
+
+

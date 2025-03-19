@@ -90,11 +90,45 @@ class PersonCardViewModel: ObservableObject {
         } else {
             var state = PersonCardState.empty()
             // 使用默认值
-            if case .add = mode {
-                if let currentFamily = stateManager.state.currentFamily {
-                    // 如果有默认姓氏就使用，否则使用家谱名称中的姓氏（如果有的话）
-                    state.basicInfo.lastName = currentFamily.defaultLastName ?? 
-                    String(currentFamily.name.prefix(1))
+            if case .add(let relationType) = mode {
+                if let personManager = appViewModel?.personManager {
+                    // 使用 PersonManagementViewModel 获取默认值
+                    // 解包 relationType，确保它不是 nil
+                    if let unwrappedRelationType = relationType {
+                        let defaultInfo = personManager.getDefaultInfo(for: unwrappedRelationType, targetPerson: stateManager.state.selectedPerson)
+                        state.basicInfo.lastName = defaultInfo.lastName
+                        if let gender = defaultInfo.gender {
+                            state.basicInfo.gender = gender
+                        }
+                    }
+                } else {
+                    // 如果没有 personManager，使用上面的逻辑
+                    if let targetPerson = stateManager.state.selectedPerson {
+                        // 根据关系类型设置默认姓氏和性别
+                        switch relationType {
+                        case .father:
+                            state.basicInfo.lastName = targetPerson.lastName
+                            state.basicInfo.gender = .male
+                        case .mother:
+                            state.basicInfo.gender = .female
+                        case .child:
+                            state.basicInfo.lastName = targetPerson.lastName
+                        case .brother:  // 修改为 brother 而不是 sibling
+                            state.basicInfo.lastName = targetPerson.lastName
+                            state.basicInfo.gender = .male
+                        case .sister:   // 添加 sister 处理
+                            state.basicInfo.lastName = targetPerson.lastName
+                            state.basicInfo.gender = .female
+                        case .spouse:
+                            state.basicInfo.gender = targetPerson.gender == .male ? .female : .male
+                        default:
+                            if let currentFamily = stateManager.state.currentFamily {
+                                state.basicInfo.lastName = currentFamily.defaultLastName ?? ""
+                            }
+                        }
+                    } else if let currentFamily = stateManager.state.currentFamily {
+                        state.basicInfo.lastName = currentFamily.defaultLastName ?? ""
+                    }
                 }
             }
             self.state = state
