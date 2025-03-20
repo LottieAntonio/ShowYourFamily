@@ -122,5 +122,27 @@ class FamilyManagementViewModel: ObservableObject {
             await appViewModel.refreshData()
         }
     }
+    
+    // 添加更新家谱信息的方法
+    func updateFamily(_ family: Family) async throws {
+        // 使用 stateManager 更新家谱信息
+        try await stateManager.updateFamily(family)
+        
+        // 通知 appViewModel 刷新数据
+        if let appViewModel = appViewModel {
+            await appViewModel.refreshData()
+        }
+    }
+    
+    // 添加删除家谱的方法
+    func deleteFamily(_ familyId: UUID) async throws {
+        // 使用 stateManager 删除家谱
+        try await stateManager.deleteFamily(familyId)
+        
+        // 通知 appViewModel 刷新数据
+        if let appViewModel = appViewModel {
+            await appViewModel.refreshData()
+        }
+    }
 }
 

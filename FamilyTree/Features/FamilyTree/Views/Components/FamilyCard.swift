@@ -6,10 +6,15 @@ struct FamilyCard: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // 图标
+            // 图标 - 后续可以支持自定义图片
             Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
                 .font(.system(size: 40))
                 .foregroundColor(.accentColor)
+                .frame(width: 60, height: 60)
+                .background(
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.1))
+                )
             
             // 标题
             Text(family.name)
@@ -20,6 +25,7 @@ struct FamilyCard: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
             
             // 成员数量
             Text("\(memberCount) 位成员")

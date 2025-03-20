@@ -188,6 +188,54 @@ class StateManager: ObservableObject {
         await setCurrentFamily(emptyFamily)
     }
     
+    // 更新家谱信息
+    func updateFamily(_ family: Family) async throws {
+        // 保存到数据管理器
+        try await dataManager.saveFamily(family)
+        
+        // 更新内存中的状态
+        await MainActor.run {
+            if let index = state.families.firstIndex(where: { $0.id == family.id }) {
+                state.families[index] = family
+                
+                // 如果更新的是当前家谱，也更新当前家谱引用
+                if state.currentFamily?.id == family.id {
+                    state.currentFamily = family
+                }
+            }
+        }
+    }
+    
+    // 删除家谱
+    func deleteFamily(_ familyId: UUID) async throws {
+        // 确保不是默认家谱
+        if let family = state.families.first(where: { $0.id == familyId }), family.isDefault {
+            // 直接抛出字符串错误信息，而不是使用枚举
+            throw NSError(domain: "FamilyTreeError", code: 1001, userInfo: [NSLocalizedDescriptionKey: "默认家谱不能被删除"])
+        }
+        
+        // 删除家谱相关的所有数据
+        try await dataManager.deleteFamily(familyId)
+        
+        // 更新内存中的状态
+        await MainActor.run {
+            state.families.removeAll { $0.id == familyId }
+            
+            // 如果删除的是当前家谱，切换到默认家谱
+            if state.currentFamily?.id == familyId {
+                state.currentFamily = state.families.first(where: { $0.isDefault })
+                state.persons = []
+                state.relationships = []
+                state.selectedPerson = nil
+            }
+        }
+        
+        // 如果切换到了新的当前家谱，加载其数据
+        if let currentFamily = state.currentFamily {
+            try await loadFamilyData(family: currentFamily)
+        }
+    }
+    
     // MARK: - 人物操作
     
     func selectPerson(_ person: Person) {
