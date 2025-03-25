@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // 用于解析 JSON 的数据结构
 private struct RawFamilyData: Codable {
@@ -6,6 +7,7 @@ private struct RawFamilyData: Codable {
         let name: String
         let description: String?
         let isDefault: Bool
+        let badgeImageName: String?
     }
     
     struct RawPerson: Codable {
@@ -15,6 +17,7 @@ private struct RawFamilyData: Codable {
         let birthDate: Date
         let birthOrder: Int
         let isSelf: Bool?
+        let photoImageName: String?
     }
     
     struct RawRelationship: Codable {
@@ -64,9 +67,9 @@ struct ExampleData {
             id: familyId,
             name: rawData.family.name,
             description: rawData.family.description,
-            isDefault: rawData.family.isDefault
+            isDefault: rawData.family.isDefault,
+            badgeImage: loadImage(named: rawData.family.badgeImageName)
         )
-        
         
         var persons: [Person] = []
         var personIndexToId: [Int: UUID] = [:]
@@ -76,7 +79,7 @@ struct ExampleData {
             let personId = UUID()
             personIndexToId[index] = personId
             
-            let person = Person(
+            var person = Person(
                 id: personId,
                 familyId: familyId,
                 firstName: rawPerson.firstName,
@@ -85,8 +88,17 @@ struct ExampleData {
                 isSelf: rawPerson.isSelf ?? false
             ).with(birthDate: rawPerson.birthDate)
             
-            persons.append(person)
+            // 加载照片
+            if let photoName = rawPerson.photoImageName, let image = loadImage(named: photoName) {
+                // 将 UIImage 转换为 Data
+                if let photoData = image.jpegData(compressionQuality: 0.8) {
+                    // 这里需要确保 Person 有 photo 属性和 with(photo:) 方法
+                    // 假设 Person 结构体有一个接受 Data 类型的 photo 属性
+                    person = person.with(photo: photoData)
+                }
+            }
             
+            persons.append(person)
         }
         
         var relationships: [Relationship] = []
@@ -205,6 +217,29 @@ struct ExampleData {
         
         
         return (family, persons, relationships)
+    }
+    
+    // 添加一个辅助方法来加载图片
+    private static func loadImage(named: String?) -> UIImage? {
+        guard let imageName = named else { return nil }
+        
+        // 首先尝试从 Assets 加载
+        if let image = UIImage(named: imageName) {
+            return image
+        }
+        
+        // 如果 Assets 中没有，尝试从 Bundle 加载
+        if let path = Bundle.main.path(forResource: imageName, ofType: "jpg"),
+           let image = UIImage(contentsOfFile: path) {
+            return image
+        }
+        
+        if let path = Bundle.main.path(forResource: imageName, ofType: "png"),
+           let image = UIImage(contentsOfFile: path) {
+            return image
+        }
+        
+        return nil
     }
     
     // 自动推导隐含的兄弟姐妹关系

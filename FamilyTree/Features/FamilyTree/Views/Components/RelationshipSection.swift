@@ -160,14 +160,18 @@ private struct PersonItemView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 8) {
-                // 添加头像
-                // 将原来的Circle和Text替换为PersonAvatarView
-                PersonAvatarView(
-                    person: person,
-                    size: 32,
-                    type: type,
-                    isEditable: false
-                )
+                // 修改头像视图，添加点击事件拦截
+                ZStack {
+                    PersonAvatarView(
+                        person: person,
+                        size: 32,
+                        type: type,
+                        isEditable: false
+                    )
+                    // 添加一个透明的覆盖层来确保点击事件正确传递
+                    Color.clear
+                        .frame(width: 32, height: 32)
+                }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
@@ -210,10 +214,12 @@ private struct PersonItemView: View {
                         y: 2
                     )
             )
+            // 确保整个按钮区域可点击
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PlainButtonStyle())
         .matchedGeometryEffect(
-            id: "\(type.rawValue)_\(person.id)",  // 修改这里，使用相同的组合 ID
+            id: "\(type.rawValue)_\(person.id)",
             in: animation,
             isSource: !isSelected
         )

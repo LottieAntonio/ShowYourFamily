@@ -117,15 +117,19 @@ extension Person {
     func with(
         birthDate: Date? = nil,
         deathDate: Date? = nil,
+        photo: Data? = nil,  // 添加 photo 参数
         contacts: Contacts? = nil,
         lifeEvents: [LifeEvent]? = nil,
         stories: [Story]? = nil,
         notes: String? = nil,
-        isSelf: Bool? = nil  // 添加 isSelf 参数
+        isSelf: Bool? = nil
     ) -> Person {
         var person = self
         person.birthDate = birthDate
         person.deathDate = deathDate
+        if let photo = photo {  // 设置照片
+            person.photo = photo
+        }
         person.contacts = contacts
         person.lifeEvents = lifeEvents
         person.stories = stories

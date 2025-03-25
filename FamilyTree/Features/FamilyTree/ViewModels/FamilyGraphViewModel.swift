@@ -14,6 +14,11 @@ class FamilyGraphViewModel: ObservableObject {
     @Published private(set) var graphData: FamilyGraphData?
     @Published private(set) var selfPerson: Person?  // 添加这个属性
     
+    // 添加筛选相关的属性
+    @Published var selectedRelationCategories: [RelationCategory] = [.all]
+    @Published var displayDepth: Int = 3
+    @Published private(set) var filteredGraphData: FamilyGraphData?
+    
     private let stateManager: StateManager
     private var cancellables = Set<AnyCancellable>()
     
@@ -72,19 +77,35 @@ class FamilyGraphViewModel: ObservableObject {
     private func updateGraphData() {
         guard let centerPerson = selectedPerson else {
             graphData = nil
+            filteredGraphData = nil
             return
         }
-     
-        for rel in relationships {
-            let fromPerson = persons.first { $0.id == rel.fromPerson }?.name ?? "未知"
-            let toPerson = persons.first { $0.id == rel.toPerson }?.name ?? "未知"
-        }
-        
         // 创建一个集合来跟踪已处理的人物
         var processedPersons = Set<UUID>()
         
         // 创建图谱数据
-        graphData = createGraphData(for: centerPerson, level: 0, maxDepth: 3, processedPersons: &processedPersons)
+        graphData = createGraphData(for: centerPerson, level: 0, maxDepth: 6, processedPersons: &processedPersons)
+        
+        // 应用筛选
+        applyFilter()
+    }
+    
+    // 添加筛选方法
+    func applyFilter() {
+        guard let fullData = graphData else {
+            filteredGraphData = nil
+            return
+        }
+        
+        // 应用筛选
+        filteredGraphData = fullData.filtered(by: selectedRelationCategories, maxDepth: displayDepth)
+    }
+    
+    // 更新筛选设置
+    func updateFilter(categories: [RelationCategory], depth: Int) {
+        selectedRelationCategories = categories
+        displayDepth = depth
+        applyFilter()
     }
     
     private func createGraphData(for person: Person, level: Int, maxDepth: Int, processedPersons: inout Set<UUID>) -> FamilyGraphData {
@@ -316,7 +337,8 @@ class FamilyGraphViewModel: ObservableObject {
     
     // 获取完整的图谱数据，包括布局信息
     func getGraphData() -> GraphLayoutData? {
-        guard let data = graphData else { return nil }
+        // 使用筛选后的数据而不是原始数据
+        guard let data = filteredGraphData ?? graphData else { return nil }
         
         return GraphLayoutData(
             centerPerson: data.centerPerson,
@@ -332,11 +354,59 @@ class FamilyGraphViewModel: ObservableObject {
         return graphData
     }
     
+    // 获取筛选后的图谱数据
+    func getFilteredGraphData() -> FamilyGraphData? {
+        return filteredGraphData
+    }
+    
     // 添加一个公共方法，允许 FamilyAppViewModel 触发图谱数据更新
     func refreshGraphData() {
         if let selectedPerson = selectedPerson {
             updateGraphData()
         }
+    }
+    
+    // 添加重置筛选的方法
+    func resetFilter() {
+        selectedRelationCategories = [.all]
+        displayDepth = 3
+        applyFilter()
+    }
+    
+    // 获取当前中心人物的可用关系类别
+    func getAvailableCategories() -> [RelationCategory] {
+        guard let data = graphData else { return [.all] }
+        
+        var categories: [RelationCategory] = [.all]
+        
+        if !data.parents.isEmpty {
+            categories.append(.paternal)
+            categories.append(.maternal)
+        }
+        
+        if !data.spouses.isEmpty {
+            categories.append(.spouse)
+        }
+        
+        if !data.children.isEmpty {
+            categories.append(.children)
+        }
+        
+        if !data.siblings.isEmpty {
+            categories.append(.siblings)
+        }
+        
+        return categories
+    }
+    
+    // 获取可用的深度选项
+    func getAvailableDepths() -> [Int] {
+        return [1, 2, 3, 4, 5]
+    }
+    
+    // 添加强制更新图谱数据的方法
+    func forceUpdateGraphData() {
+        updateGraphData()
     }
 }
 
@@ -353,3 +423,5 @@ struct GraphLayoutData {
     let spouses: [NodeData]
     let siblings: [NodeData]
 }
+
+

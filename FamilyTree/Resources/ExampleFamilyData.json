@@ -2,164 +2,109 @@
     "family": {
         "name": "示例家谱",
         "description": "这是一个示例家谱，展示了三代人的家庭关系",
-        "isDefault": true
+        "isDefault": true,
+        "badgeImageName": "family_badge_default"
     },
     "persons": [
-        {
-            "firstName": "大山",
-            "lastName": "张",
-            "gender": "male",
-            "birthDate": "1930-05-15T00:00:00Z",
-            "birthOrder": 1
-        },
-        {
-            "firstName": "秀兰",
-            "lastName": "李",
-            "gender": "female",
-            "birthDate": "1932-08-23T00:00:00Z",
-            "birthOrder": 1
-        },
-        {
-            "firstName": "建国",
-            "lastName": "张",
-            "gender": "male",
-            "birthDate": "1955-10-01T00:00:00Z",
-            "birthOrder": 1
-        },
-        {
-            "firstName": "丽华",
-            "lastName": "王",
-            "gender": "female",
-            "birthDate": "1958-03-08T00:00:00Z",
-            "birthOrder": 1
-        },
-        {
-            "firstName": "建军",
-            "lastName": "张",
-            "gender": "male",
-            "birthDate": "1957-08-01T00:00:00Z",
-            "birthOrder": 2
-        },
-        {
-            "firstName": "玉珍",
-            "lastName": "陈",
-            "gender": "female",
-            "birthDate": "1960-12-25T00:00:00Z",
-            "birthOrder": 1
-        },
-        {
-            "firstName": "小明",
-            "lastName": "张",
-            "gender": "male",
-            "birthDate": "1982-09-15T00:00:00Z",
-            "birthOrder": 1,
-            "isSelf": true
-        },
-        {
-            "firstName": "小红",
-            "lastName": "张",
-            "gender": "female",
-            "birthDate": "1985-04-20T00:00:00Z",
-            "birthOrder": 2
-        },
-        {
-            "firstName": "小军",
-            "lastName": "张",
-            "gender": "male",
-            "birthDate": "1984-06-18T00:00:00Z",
-            "birthOrder": 1
-        }
+        
+        { "firstName": "川", "lastName": "川", "gender": "male", "birthDate": "1980-09-01T00:00:00Z", "birthOrder": 0 },
+        { "firstName": "星", "lastName": "新", "gender": "female", "birthDate": "1982-08-01T00:00:00Z", "birthOrder": 1 },
+        { "firstName": "雪(生于野外)", "lastName": "白", "gender": "female", "birthDate": "1988-01-01T00:00:00Z", "birthOrder": 2 },
+
+        
+        
+        { "firstName": "地", "lastName": "大", "gender": "male", "birthDate": "1992-09-22T00:00:00Z", "birthOrder": 3 },
+        { "firstName": "灵", "lastName": "灵", "gender": "male", "birthDate": "1995-08-25T00:00:00Z", "birthOrder": 4 },
+        { "firstName": "英(生于野外)", "lastName": "英", "gender": "female", "birthDate": "1991-11-01T00:00:00Z", "birthOrder": 5 },
+        { "firstName": "韵", "lastName": "竹", "gender": "female", "birthDate": "2002-07-17T00:00:00Z", "birthOrder": 6 },
+        { "firstName": "老二", "lastName": "娅", "gender": "female", "birthDate": "1999-09-09T00:00:00Z", "birthOrder": 7 },
+        { "firstName": "琳", "lastName": "琳", "gender": "male", "birthDate": "1997-08-02T00:00:00Z", "birthOrder": 8 },
+
+        { "firstName": "庆", "lastName": "蜀", "gender": "female", "birthDate": "1999-08-03T00:00:00Z", "birthOrder": 9 },
+        { "firstName": "屏(生于野外)", "lastName": "屏", "gender": "male", "birthDate": "1991-01-01T00:00:00Z", "birthOrder": 10 },
+        
+        
+
+        { "firstName": "华", "lastName": "瑛", "gender": "female", "birthDate": "2003-08-17T00:00:00Z", "birthOrder": 11 },
+        { "firstName": "美", "lastName": "瑛", "gender": "female", "birthDate": "2003-08-17T00:10:00Z", "birthOrder": 12 },
+        { "firstName": "萌", "lastName": "萌", "gender": "female", "birthDate": "2006-09-13T00:00:00Z", "birthOrder": 13 },
+        { "firstName": "勇", "lastName": "勇", "gender": "male", "birthDate": "2004-08-26T00:00:00Z", "birthOrder": 14 },
+        { "firstName": "科", "lastName": "津", "gender": "male", "birthDate": "2009-07-15T00:00:00Z", "birthOrder": 15 },
+
+        { "firstName": "兰", "lastName": "美", "gender": "male", "birthDate": "2006-09-06T00:00:00Z", "birthOrder": 16 },
+        { "firstName": "功", "lastName": "成", "gender": "female", "birthDate": "2000-09-011T00:00:00Z", "birthOrder": 17 },
+        
+        { "firstName": "顺", "lastName": "二", "gender": "female", "birthDate": "2007-08-10T00:00:00Z", "birthOrder": 18 },
+        { "firstName": "仔", "lastName": "莽", "gender": "female", "birthDate": "2011-09-04T00:00:00Z", "birthOrder": 19 },
+        { "firstName": "月", "lastName": "良", "gender": "female", "birthDate": "2016-09-19T00:00:00Z", "birthOrder": 20 },
+        
+        { "firstName": "虎", "lastName": "金", "gender": "male", "birthDate": "2010-07-08T00:00:00Z", "birthOrder": 21 },
+        
+
+        
+        { "firstName": "大", "lastName": "萌", "gender": "male", "birthDate": "2013-08-22T00:00:00Z", "birthOrder": 22 },
+        { "firstName": "二", "lastName": "萌", "gender": "male", "birthDate": "2013-08-22T00:10:00Z", "birthOrder": 23, "isSelf": true },
+        { "firstName": "兰", "lastName": "萌", "gender": "male", "birthDate": "2015-07-04T00:00:00Z", "birthOrder": 24 },
+        { "firstName": "宝", "lastName": "萌", "gender": "female", "birthDate": "2018-05-23T00:00:00Z", "birthOrder": 25 },
+        { "firstName": "玉", "lastName": "萌", "gender": "female", "birthDate": "2018-05-23T00:00:00Z", "birthOrder": 26 },
+        
+        { "firstName": "和花", "lastName": "成", "gender": "female", "birthDate": "2020-07-04T00:00:00Z", "birthOrder": 27 },
+        { "firstName": "和叶", "lastName": "成", "gender": "female", "birthDate": "2020-07-04T00:10:00Z", "birthOrder": 28 },
+        
+        { "firstName": "小五", "lastName": "莽", "gender": "male", "birthDate": "2023-07-06T00:00:00Z", "birthOrder": 29 }
+
+
     ],
     "relationships": [
-        {
-            "type": "spouse",
-            "fromPersonIndex": 0,
-            "toPersonIndex": 1,
-            "description": "张大山和李秀兰是夫妻"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 0,
-            "childIndex": 2,
-            "description": "张大山是张建国的父亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 1,
-            "childIndex": 2,
-            "description": "李秀兰是张建国的母亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 0,
-            "childIndex": 4,
-            "description": "张大山是张建军的父亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 1,
-            "childIndex": 4,
-            "description": "李秀兰是张建军的母亲"
-        },
-        {
-            "type": "spouse",
-            "fromPersonIndex": 2,
-            "toPersonIndex": 3,
-            "description": "张建国和王丽华是夫妻"
-        },
-        {
-            "type": "spouse",
-            "fromPersonIndex": 4,
-            "toPersonIndex": 5,
-            "description": "张建军和陈玉珍是夫妻"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 2,
-            "childIndex": 6,
-            "description": "张建国是张小明的父亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 3,
-            "childIndex": 6,
-            "description": "王丽华是张小明的母亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 2,
-            "childIndex": 7,
-            "description": "张建国是张小红的父亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 3,
-            "childIndex": 7,
-            "description": "王丽华是张小红的母亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 4,
-            "childIndex": 8,
-            "description": "张建军是张小军的父亲"
-        },
-        {
-            "type": "parent-child",
-            "parentIndex": 5,
-            "childIndex": 8,
-            "description": "陈玉珍是张小军的母亲"
-        },
-        {
-            "type": "sibling",
-            "person1Index": 2,
-            "person2Index": 4,
-            "description": "张建国和张建军是兄弟"
-        },
-        {
-            "type": "sibling",
-            "person1Index": 6,
-            "person2Index": 7,
-            "description": "张小明和张小红是兄妹"
-        }
+        { "type": "spouse", "fromPersonIndex": 0, "toPersonIndex": 1, "description": "川川和新星是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 2, "toPersonIndex": 10, "description": "白雪和屏屏是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 4, "toPersonIndex": 5, "description": "灵灵和英英是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 4, "toPersonIndex": 6, "description": "灵灵和竹韵是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 4, "toPersonIndex": 7, "description": "灵灵和娅老二是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 9, "toPersonIndex": 10, "description": "蜀庆和屏屏是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 13, "toPersonIndex": 14, "description": "萌萌和勇勇是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 13, "toPersonIndex": 16, "description": "萌萌和美兰是夫妻" },
+        { "type": "spouse", "fromPersonIndex": 15, "toPersonIndex": 19, "description": "莽仔和津科是夫妻" },
+
+        { "type": "parent-child", "parentIndex": 0, "childIndex": 4, "description": "川川是灵灵的父亲" },
+        { "type": "parent-child", "parentIndex": 0, "childIndex": 9, "description": "川川是蜀庆的父亲" },
+        { "type": "parent-child", "parentIndex": 1, "childIndex": 4, "description": "新星是灵灵的母亲" },
+        { "type": "parent-child", "parentIndex": 1, "childIndex": 9, "description": "新星是蜀庆的母亲" },
+        { "type": "parent-child", "parentIndex": 2, "childIndex": 8, "description": "白雪是琳琳的母亲" },
+        { "type": "parent-child", "parentIndex": 2, "childIndex": 15, "description": "白雪是津科的母亲" },
+        { "type": "parent-child", "parentIndex": 3, "childIndex": 6, "description": "大地是竹韵的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 11, "description": "灵灵是瑛华的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 12, "description": "灵灵是瑛美的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 13, "description": "灵灵是萌萌的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 18, "description": "灵灵是二顺的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 19, "description": "灵灵是莽仔的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 20, "description": "灵灵是良月的父亲" },
+        { "type": "parent-child", "parentIndex": 4, "childIndex": 21, "description": "灵灵是金虎的父亲" },
+        { "type": "parent-child", "parentIndex": 5, "childIndex": 11, "description": "英英是瑛华的母亲" },
+        { "type": "parent-child", "parentIndex": 5, "childIndex": 12, "description": "英英是瑛美的母亲" },
+        { "type": "parent-child", "parentIndex": 5, "childIndex": 13, "description": "英英是萌萌的母亲" },
+        { "type": "parent-child", "parentIndex": 6, "childIndex": 21, "description": "竹韵是金虎的父亲" },
+        { "type": "parent-child", "parentIndex": 7, "childIndex": 18, "description": "娅老二是二顺的母亲" },
+        { "type": "parent-child", "parentIndex": 7, "childIndex": 19, "description": "娅老二是莽仔的母亲" },
+        { "type": "parent-child", "parentIndex": 7, "childIndex": 20, "description": "娅老二是良月的母亲" },
+        { "type": "parent-child", "parentIndex": 9, "childIndex": 14, "description": "蜀庆是勇勇的母亲" },
+        { "type": "parent-child", "parentIndex": 10, "childIndex": 14, "description": "屏屏是勇勇的父亲" },
+        { "type": "parent-child", "parentIndex": 10, "childIndex": 15, "description": "屏屏是津科的父亲" },
+        { "type": "parent-child", "parentIndex": 13, "childIndex": 22, "description": "萌萌是萌大的母亲" },
+        { "type": "parent-child", "parentIndex": 13, "childIndex": 23, "description": "萌萌是萌二的母亲" },
+        { "type": "parent-child", "parentIndex": 13, "childIndex": 24, "description": "萌萌是萌兰的母亲" },
+        { "type": "parent-child", "parentIndex": 13, "childIndex": 25, "description": "萌萌是萌宝的母亲" },
+        { "type": "parent-child", "parentIndex": 13, "childIndex": 26, "description": "萌萌是萌玉的母亲" },
+        { "type": "parent-child", "parentIndex": 14, "childIndex": 22, "description": "勇勇是萌大的父亲" },
+        { "type": "parent-child", "parentIndex": 14, "childIndex": 23, "description": "勇勇是萌二的父亲" },
+        { "type": "parent-child", "parentIndex": 15, "childIndex": 29, "description": "津科是小五的父亲" },
+        { "type": "parent-child", "parentIndex": 16, "childIndex": 24, "description": "美兰是萌兰的父亲" },
+        { "type": "parent-child", "parentIndex": 16, "childIndex": 25, "description": "美兰是萌宝的父亲" },
+        { "type": "parent-child", "parentIndex": 16, "childIndex": 26, "description": "美兰是萌玉的父亲" },
+        { "type": "parent-child", "parentIndex": 16, "childIndex": 27, "description": "美兰是和花的父亲" },
+        { "type": "parent-child", "parentIndex": 16, "childIndex": 28, "description": "美兰是和叶的父亲" },
+        { "type": "parent-child", "parentIndex": 17, "childIndex": 27, "description": "成功是和花的母亲" },
+        { "type": "parent-child", "parentIndex": 17, "childIndex": 28, "description": "成功是和叶的母亲" },
+        { "type": "parent-child", "parentIndex": 19, "childIndex": 29, "description": "莽仔是小五的母亲" }
     ]
 }
