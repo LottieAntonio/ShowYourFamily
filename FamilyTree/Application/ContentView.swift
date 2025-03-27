@@ -20,6 +20,9 @@ struct ContentView: View {
     // 添加顶部提示显示状态
     @State private var showTopHint = true
     
+    // 添加用户偏好设置，记住是否不再显示提示
+    @AppStorage("hideTopPullDownHint") private var hideTopPullDownHint = false
+    
     // 添加底部导航栏高度常量
     private let tabBarHeight: CGFloat = 60
     
@@ -29,101 +32,16 @@ struct ContentView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 主内容区域
-            VStack(spacing: 0) {
-                // 显示当前选中的屏幕
-                Group {
-                    switch coordinator.currentScreen {
-                    case .familyTree:
-                        // 主内容
-                        ZStack(alignment: .top) {
-                            VStack(spacing: 0) {
-                                FamilyTreeView()
-                                    .environmentObject(appViewModel)
-                                RoundedRectangle(cornerRadius: 5)
-                                    .frame(height: 68)
-                                    .foregroundStyle(Color.clear)
-                                    .ignoresSafeArea()
-                                    .background(Color.familyTheme.primary.opacity(0.4))
-                            }
-                            
-                            // 添加顶部下拉提示
-                            if !isDragging {
-                                TopPullDownHint(isVisible: $showTopHint)
-                                .padding(.top, -15)
-                            }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 5, coordinateSpace: .global)
-                                .onChanged { value in
-                                    // 使用更平滑的计算方式
-                                    if value.translation.height > 0 {
-                                        // 添加阻尼效果，使下拉感觉更自然
-                                        let dampingFactor: CGFloat = 0.7
-                                        let newOffset = value.translation.height * dampingFactor
-                                        
-                                        // 使用withAnimation包装状态更新，确保平滑过渡
-                                        withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.2)) {
-                                            dragOffset = newOffset
-                                            isDragging = true
-                                        }
-                                    }
-                                }
-                                .onEnded { value in
-                                    // 如果拖动超过屏幕高度的20%，显示返回确认
-                                    let threshold = UIScreen.main.bounds.height * 0.2
-                                    if value.translation.height > threshold {
-                                        // 先恢复位置，再显示对话框，避免视觉上的跳跃
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                            dragOffset = 0
-                                            isDragging = false
-                                        }
-                                        
-                                        // 延迟一点显示确认对话框，让动画完成
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            showingReturnConfirmation = true
-                                        }
-                                    } else {
-                                        // 恢复原位，使用更平滑的弹簧动画
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                            dragOffset = 0
-                                            isDragging = false
-                                        }
-                                    }
-                                }
-                        )
-                        
-                    case .graph:
-                        // 关系图视图
-                        Group {
-                            if let currentFamily = appViewModel.currentFamily {
-                                FamilyGraphSpriteView()
-                                    .id("FamilyGraphView-\(currentFamily.id)")
-                                    .environmentObject(appViewModel)
-                                    .edgesIgnoringSafeArea(.top)
-                            } else {
-                                ContentUnavailableView("请先选择家谱", systemImage: "point.3.connected.trianglepath.dotted")
-                            }
-                        }
-                      
-                    case .members:
-                        // 成员视图
-                        Group {
-                            if let currentFamily = appViewModel.currentFamily {
-                                MembersView(family: currentFamily)
-                                    .environmentObject(appViewModel)
-                                    .padding(.bottom, tabBarHeight) // 添加底部内边距
-
-                            } else {
-                                ContentUnavailableView("请先选择家谱", systemImage: "person.3.sequence")
-                            }
-                        }
-                        
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(y: dragOffset)
-            }
+            // 主内容区域 - 替换为新的视图组件
+            MainContentView(
+                coordinator: coordinator,
+                dragOffset: $dragOffset,
+                isDragging: $isDragging,
+                showTopHint: $showTopHint,
+                hideTopPullDownHint: $hideTopPullDownHint,
+                showingReturnConfirmation: $showingReturnConfirmation,
+                tabBarHeight: tabBarHeight
+            )
             
             // 替换原来的下拉提示为新的组件
             if isDragging || dragOffset > 0 {  // 修改条件，确保平滑过渡
@@ -338,25 +256,33 @@ extension AppCoordinator.Screen: CaseIterable {
 struct TopPullDownHint: View {
     @Binding var isVisible: Bool
     @State private var opacity: Double = 0.8
+    var dontShowAgain: () -> Void
     
     var body: some View {
         if isVisible {
-            VStack(spacing: 4) {
-                HStack {
-                    Text("下拉返回家谱选择")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        withAnimation {
-                            isVisible = false
-                        }
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.8))
+            VStack(spacing: 8) {
+                // 居中显示的提示文字
+                Text("下拉返回主页")
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                
+                // 不再提醒按钮
+                Button(action: {
+                    withAnimation {
+                        isVisible = false
+                        dontShowAgain()
                     }
+                }) {
+                    Text("不再提醒")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                        )
                 }
                 
                 Image(systemName: "chevron.down")
@@ -375,6 +301,13 @@ struct TopPullDownHint: View {
                 // 创建闪烁动画
                 withAnimation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                     opacity = 0.4
+                }
+                
+                // 5秒后自动消失
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                    withAnimation(.easeOut(duration: 1)) {
+                        isVisible = false
+                    }
                 }
             }
         }
@@ -483,6 +416,119 @@ struct DragDownIndicator: View {
         .position(x: UIScreen.main.bounds.width / 2, y: 50)
         // 使用drawingGroup()启用Metal硬件加速
         .drawingGroup()
+    }
+}
+
+// 主内容视图组件
+struct MainContentView: View {
+    @ObservedObject var coordinator: AppCoordinator
+    @Binding var dragOffset: CGFloat
+    @Binding var isDragging: Bool
+    @Binding var showTopHint: Bool
+    @Binding var hideTopPullDownHint: Bool
+    @Binding var showingReturnConfirmation: Bool
+    let tabBarHeight: CGFloat
+    
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 显示当前选中的屏幕
+            Group {
+                switch coordinator.currentScreen {
+                case .familyTree:
+                    // 主内容
+                    ZStack(alignment: .top) {
+                        VStack(spacing: 0) {
+                            FamilyTreeView()
+                                .environmentObject(appViewModel)
+                            RoundedRectangle(cornerRadius: 5)
+                                .frame(height: 68)
+                                .foregroundStyle(Color.clear)
+                                .ignoresSafeArea()
+                                .background(Color.familyTheme.primary.opacity(0.4))
+                        }
+                        
+                        // 添加顶部下拉提示
+                        if !isDragging && !hideTopPullDownHint {
+                            TopPullDownHint(isVisible: $showTopHint, dontShowAgain: {
+                                // 设置用户偏好，不再显示提示
+                                hideTopPullDownHint = true
+                            })
+                            .padding(.top, -15)
+                        }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 5, coordinateSpace: .global)
+                            .onChanged { value in
+                                // 使用更平滑的计算方式
+                                if value.translation.height > 0 {
+                                    // 添加阻尼效果，使下拉感觉更自然
+                                    let dampingFactor: CGFloat = 0.7
+                                    let newOffset = value.translation.height * dampingFactor
+                                    
+                                    // 使用withAnimation包装状态更新，确保平滑过渡
+                                    withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.2)) {
+                                        dragOffset = newOffset
+                                        isDragging = true
+                                    }
+                                }
+                            }
+                            .onEnded { value in
+                                // 如果拖动超过屏幕高度的20%，显示返回确认
+                                let threshold = UIScreen.main.bounds.height * 0.2
+                                if value.translation.height > threshold {
+                                    // 先恢复位置，再显示对话框，避免视觉上的跳跃
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        dragOffset = 0
+                                        isDragging = false
+                                    }
+                                    
+                                    // 延迟一点显示确认对话框，让动画完成
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        showingReturnConfirmation = true
+                                    }
+                                } else {
+                                    // 恢复原位，使用更平滑的弹簧动画
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        dragOffset = 0
+                                        isDragging = false
+                                    }
+                                }
+                            }
+                    )
+                    
+                case .graph:
+                    // 关系图视图
+                    Group {
+                        if let currentFamily = appViewModel.currentFamily {
+                            FamilyGraphSpriteView()
+                                .id("FamilyGraphView-\(currentFamily.id)")
+                                .environmentObject(appViewModel)
+                                .edgesIgnoringSafeArea(.top)
+                        } else {
+                            ContentUnavailableView("请先选择家谱", systemImage: "point.3.connected.trianglepath.dotted")
+                        }
+                    }
+                  
+                case .members:
+                    // 成员视图
+                    Group {
+                        if let currentFamily = appViewModel.currentFamily {
+                            MembersView(family: currentFamily)
+                                .environmentObject(appViewModel)
+                                .padding(.bottom, tabBarHeight) // 添加底部内边距
+
+                        } else {
+                            ContentUnavailableView("请先选择家谱", systemImage: "person.3.sequence")
+                        }
+                    }
+                    
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .offset(y: dragOffset)
+        }
     }
 }
 
