@@ -23,16 +23,12 @@ class AncestorRelationHandler: BaseRelationHandler {
     
     // 查找祖父母称谓
     private func findGrandparentTitle(from source: Person, to target: Person) -> String? {
-        
         // 使用直接关系查询
         let grandparents = getGrandparents(source.id)
         
-       
         if grandparents.contains(where: { $0.id == target.id }) {
-            
             // 确定是父系还是母系
             if let father = getFather(source.id) {
-                
                 if let fatherFather = getFather(father.id), fatherFather.id == target.id {
                     return RelationshipTitleMapper.getPaternalGrandparentTitle(gender: .male)
                 }
@@ -40,11 +36,9 @@ class AncestorRelationHandler: BaseRelationHandler {
                 if let fatherMother = getMother(father.id), fatherMother.id == target.id {
                     return RelationshipTitleMapper.getPaternalGrandparentTitle(gender: .female)
                 }
-            } else {
             }
             
             if let mother = getMother(source.id) {
-                
                 if let motherFather = getFather(mother.id), motherFather.id == target.id {
                     return RelationshipTitleMapper.getMaternalGrandparentTitle(gender: .male)
                 }
@@ -53,8 +47,8 @@ class AncestorRelationHandler: BaseRelationHandler {
                     return RelationshipTitleMapper.getMaternalGrandparentTitle(gender: .female)
                 }
             } else {
+                return "奶奶/外婆" // 默认称谓
             }
-        } else {
         }
         
         return nil

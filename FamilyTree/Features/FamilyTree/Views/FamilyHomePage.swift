@@ -11,30 +11,57 @@ struct FamilyHomePage: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // 家族徽章/图标区域
-                    familyBadgeSection
-                    
-                    // 家族信息区域
-                    familyInfoSection
-                    
-                    // 功能区域
-                    featuresSection
-                    
-                    // 进入家谱按钮
-                    enterFamilyTreeButton
+            ZStack(alignment: .bottom) {
+                // 内容区域
+                ScrollView {
+                    VStack(spacing: 25) {
+                        // 家族徽章/图标区域
+                        familyBadgeSection
+                            .frame(maxHeight: UIScreen.main.bounds.height * 0.25)
+                        
+                        // 家族信息区域
+                        familyInfoSection
+                            .frame(maxHeight: UIScreen.main.bounds.height * 0.4)
+                        
+                        // 添加底部空间，确保内容不被按钮遮挡
+                        Spacer(minLength: 100)
+                    }
+                    .padding(.horizontal)
                 }
-                .padding()
+                
+                // 固定在底部的按钮
+                VStack {
+                    enterFamilyTreeButton
+                        .background(
+                            Rectangle()
+                                .fill(Color(.clear))
+                                .shadow(color: .black.opacity(0.1), radius: 3, y: -2)
+                                .edgesIgnoringSafeArea(.bottom)
+                        )
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 20)
+                }
             }
             .navigationTitle(family.name)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true) // 隐藏默认的返回按钮
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.accentColor)
+                            .imageScale(.large)
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showingFamilyEditor = true
                     }) {
-                        Image(systemName: "pencil")
+                        Text("编辑")
+                            .fontWeight(.medium)
                     }
                 }
             }
@@ -61,126 +88,78 @@ struct FamilyHomePage: View {
     }
     
     private var familyBadgeSection: some View {
-        VStack {
-            // 这里可以是用户自定义的族徽
-            // 暂时使用系统图标，后续可以替换为自定义图片
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 120, height: 120)
-                
-                Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.accentColor)
-            }
-            .padding()
+        // 这里可以是用户自定义的族徽
+        // 暂时使用系统图标，后续可以替换为自定义图片
+        ZStack {
+            Circle()
+                .fill(Color.accentColor.opacity(0.1))
+                .frame(width: 200, height: 200)
             
-            Text("家族徽章")
-                .font(.headline)
+            Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.accentColor)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(radius: 2)
-        )
+        .padding(.top, 10)
     }
     
     private var familyInfoSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("家族信息")
-                .font(.headline)
-                .padding(.bottom, 5)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("家族信息")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+            }
+            .padding(.bottom, 5)
             
             HStack {
                 Text("家族名称:")
                     .foregroundColor(.secondary)
+                    .font(.subheadline)
                 Spacer()
                 Text(family.name)
                     .bold()
+                    .font(.subheadline)
             }
+            .padding(.vertical, 4)
             
             Divider()
             
             HStack {
                 Text("成员数量:")
                     .foregroundColor(.secondary)
+                    .font(.subheadline)
                 Spacer()
                 Text("\(appViewModel.familyManager.memberCount) 位成员")
+                    .font(.subheadline)
             }
+            .padding(.vertical, 4)
             
             Divider()
             
-            HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("家族描述:")
                     .foregroundColor(.secondary)
-                Spacer()
-                Text(family.description ?? "暂无描述")
-                    .multilineTextAlignment(.trailing)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(radius: 2)
-        )
-    }
-    
-    private var featuresSection: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            Text("家族服务")
-                .font(.headline)
-                .padding(.bottom, 5)
-            
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 15) {
-                featureButton(title: "族徽定制", icon: "paintbrush.fill", action: {
-                    // 族徽定制功能
-                })
-                
-                featureButton(title: "家族起名", icon: "text.book.closed.fill", action: {
-                    // 家族起名功能
-                })
-                
-                featureButton(title: "族谱定制", icon: "doc.text.fill", action: {
-                    // 族谱定制功能
-                })
-                
-                featureButton(title: "家族用品", icon: "gift.fill", action: {
-                    // 家族用品功能
-                })
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(radius: 2)
-        )
-    }
-    
-    private func featureButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack {
-                Image(systemName: icon)
-                    .font(.system(size: 30))
-                    .foregroundColor(.accentColor)
-                    .padding(.bottom, 5)
-                
-                Text(title)
                     .font(.subheadline)
+                
+                ScrollView {
+                    Text(family.description ?? "暂无描述")
+                        .font(.subheadline)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 5)
+                }
+                .frame(maxHeight: 120)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
-            )
+            .padding(.vertical, 4)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        )
     }
     
     private var enterFamilyTreeButton: some View {
@@ -188,15 +167,42 @@ struct FamilyHomePage: View {
             showingContentView = true
         }) {
             HStack {
-                Image(systemName: "person.2.fill")
                 Text("进入家谱")
-                    .bold()
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.headline)
             }
             .frame(maxWidth: .infinity)
-            .padding()
+            .padding(.vertical, 20)
             .background(Color.accentColor)
             .foregroundColor(.white)
-            .cornerRadius(10)
+            .cornerRadius(25)
+            .shadow(color: Color.accentColor.opacity(0.4), radius: 5, x: 0, y: 3)
         }
+    }
+}
+
+// 添加预览视图
+#Preview {
+    FamilyHomePage(family: Family.mockFamily)
+        .environmentObject(FamilyAppViewModel.preview)
+}
+
+// 为了支持预览，在Family模型中添加一个模拟数据
+extension Family {
+    static var mockFamily: Family {
+        var family = Family(name: "张氏家族", description: "这是一个有着悠久历史的家族，始于明朝初年，传承至今已有数百年历史。家族成员遍布全国各地，以诚信、勤劳著称。")
+        family.isDefault = false
+        return family
+    }
+}
+
+// 为了支持预览，在FamilyAppViewModel中添加一个预览实例
+extension FamilyAppViewModel {
+    static var preview: FamilyAppViewModel {
+        let viewModel = FamilyAppViewModel()
+        // 可以在这里设置一些预览数据
+        return viewModel
     }
 }

@@ -26,7 +26,6 @@ struct MembersView: View {
                     }
                 }
             }
-            .navigationTitle("家庭成员")
             .sheet(isPresented: $showingPersonCard) {
                 NavigationStack {
                     PersonCard(

@@ -250,14 +250,34 @@ class BaseRelationHandler {
             return cached
         }
         
-        // 查找子女关系
-        let childRelations = relationships.filter { 
+        // 查找子女关系 - 考虑两种方向
+        // 1. 父母指向子女的.child关系
+        let childRelations1 = relationships.filter { 
             $0.fromPerson == personId && $0.type == .child 
         }
         
-        let children = childRelations.compactMap { relation in
+        var children = childRelations1.compactMap { relation in
             persons.first(where: { $0.id == relation.toPerson })
         }
+        
+        // 2. 子女指向父母的.father/.mother/.parent关系
+        let childRelations2 = relationships.filter {
+            $0.toPerson == personId && ($0.type == .father || $0.type == .mother || $0.type == .parent)
+        }
+        
+        let childrenFromParentRelations = childRelations2.compactMap { relation in
+            persons.first(where: { $0.id == relation.fromPerson })
+        }
+        
+        // 合并结果，避免重复
+        for child in childrenFromParentRelations {
+            if !children.contains(where: { $0.id == child.id }) {
+                children.append(child)
+            }
+        }
+        
+        // 缓存结果
+        childrenCache[personId] = children
         
         return children
     }

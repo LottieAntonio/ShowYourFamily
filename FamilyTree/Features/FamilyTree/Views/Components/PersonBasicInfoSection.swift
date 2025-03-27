@@ -26,7 +26,8 @@ private struct ReadOnlyPersonInfoView: View {
                     .fontWeight(.medium)
                     .lineLimit(1)
                 
-                if viewModel.isSelfPerson == true {
+                // 修改判断逻辑，确保正确识别"自己"
+                if let person = viewModel.currentPerson, person.isSelf {
                     Text("自己")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

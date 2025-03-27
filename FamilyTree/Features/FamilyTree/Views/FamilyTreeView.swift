@@ -41,6 +41,7 @@ struct FamilyTreeView: View {
                 showAddPerson: showAddPerson,
                 showAddRelation: showAddRelation
             )
+            
             .sheet(isPresented: $showingPersonCard) {
                 NavigationStack {
                     PersonCard(

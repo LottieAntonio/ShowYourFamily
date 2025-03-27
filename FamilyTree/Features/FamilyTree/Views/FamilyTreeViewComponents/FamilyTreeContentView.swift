@@ -25,8 +25,8 @@ struct FamilyTreeContentView: View {
     
     var body: some View {
         ZStack {
-            Color.familyTheme.primary.opacity(0.2)
-                .ignoresSafeArea()
+            Color.familyTheme.primary.opacity(0.4)
+                .edgesIgnoringSafeArea([.top, .horizontal])
             
             if isLocalLoading {
                 ProgressView("加载中...")

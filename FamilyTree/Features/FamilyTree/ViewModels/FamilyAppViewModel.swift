@@ -165,4 +165,46 @@ class FamilyAppViewModel: ObservableObject {
     func getRelationshipDescription(from source: Person, to target: Person) -> String {
         return relationshipManager.getRelationshipDescription(from: source, to: target)
     }
+    
+    // 添加一个方法来重置所有称谓生成器
+    // 重置称谓生成器
+    // 简化重置称谓生成器的方法
+    // 优化重置称谓生成器的方法
+    // 添加一个新方法，结合重置称谓生成器和刷新数据
+    func resetTitleGeneratorsAndRefresh() async {
+        print("FamilyAppViewModel: 开始重置称谓生成器和刷新数据")
+        
+        // 1. 先刷新数据，确保使用最新数据
+        await refreshData()
+        
+        // 2. 重置关系管理器中的称谓生成器
+        relationshipManager.resetTitleGenerator()
+        print("FamilyAppViewModel: 称谓生成器已重置")
+        
+        // 3. 发送单一通知，让所有视图更新
+        DispatchQueue.main.async {
+            // 发送重置称谓缓存通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ResetTitleCache"),
+                object: nil
+            )
+            print("FamilyAppViewModel: 已发送ResetTitleCache通知")
+            
+            // 延迟一点发送刷新通知，确保称谓缓存已被重置
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("RefreshPersonData"),
+                    object: nil
+                )
+                print("FamilyAppViewModel: 已发送RefreshPersonData通知")
+            }
+        }
+    }
+    
+    // 简化原有的resetTitleGenerators方法
+    func resetTitleGenerators() {
+        print("FamilyAppViewModel: 开始重置称谓生成器")
+        relationshipManager.resetTitleGenerator()
+        print("FamilyAppViewModel: 称谓生成器已重置")
+    }
 }

@@ -2,16 +2,14 @@ import Foundation
 
 class DirectRelationHandler: BaseRelationHandler {
     func findDirectTitle(from source: Person, to target: Person) -> String? {
-        // 添加调试日志
+        // 检查子女关系 - 调整顺序，先检查子女关系
+        if let childTitle = findChildTitle(from: source, to: target) {
+            return childTitle
+        }
         
         // 检查父母关系
         if let parentTitle = findParentTitle(from: source, to: target) {
             return parentTitle
-        }
-        
-        // 检查子女关系
-        if let childTitle = findChildTitle(from: source, to: target) {
-            return childTitle
         }
         
         // 检查兄弟姐妹关系
@@ -56,12 +54,15 @@ class DirectRelationHandler: BaseRelationHandler {
         
         // 检查子女关系的反向
         let childRelations = relationships.filter { 
-            ($0.fromPerson == target.id && $0.toPerson == source.id && $0.type == .child) ||
-            ($0.fromPerson == source.id && $0.toPerson == target.id && $0.type == .child)
+            ($0.fromPerson == source.id && $0.toPerson == target.id && $0.type == .child) ||
+            ($0.fromPerson == target.id && $0.toPerson == source.id && $0.type == .child)
         }
         
         if let childRelation = childRelations.first {
-            if childRelation.fromPerson == target.id {
+            if childRelation.fromPerson == source.id && childRelation.toPerson == target.id {
+                // 如果source是父母，target是子女，则不应该返回父母称谓
+                return nil
+            } else if childRelation.fromPerson == target.id && childRelation.toPerson == source.id {
                 // 对方是自己的父母
                 return RelationshipTitleMapper.getParentTitle(gender: target.gender)
             }
@@ -74,8 +75,25 @@ class DirectRelationHandler: BaseRelationHandler {
     private func findChildTitle(from source: Person, to target: Person) -> String? {
         // 使用直接关系查询
         let children = getChildren(source.id)
+        
         if children.contains(where: { $0.id == target.id }) {
             return RelationshipTitleMapper.getChildTitle(gender: target.gender)
+        }
+        
+        // 添加直接检查关系数据
+        let childRelations = relationships.filter { 
+            ($0.fromPerson == source.id && $0.toPerson == target.id && $0.type == .child) ||
+            ($0.fromPerson == target.id && $0.toPerson == source.id && 
+             ($0.type == .father || $0.type == .mother || $0.type == .parent))
+        }
+        
+        if let childRelation = childRelations.first {
+            // 确保关系方向正确
+            if (childRelation.fromPerson == source.id && childRelation.type == .child) ||
+               (childRelation.toPerson == source.id && 
+                (childRelation.type == .father || childRelation.type == .mother || childRelation.type == .parent)) {
+                return RelationshipTitleMapper.getChildTitle(gender: target.gender)
+            }
         }
         
         return nil

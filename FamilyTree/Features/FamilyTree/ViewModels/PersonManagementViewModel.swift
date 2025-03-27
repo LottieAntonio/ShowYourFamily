@@ -368,16 +368,16 @@ extension PersonManagementViewModel {
                 try await stateManager.addRelationship(Relationship(
                     id: UUID(),
                     type: .child,
-                    fromPerson: newPerson.id,
-                    toPerson: targetPerson.id
+                    fromPerson: targetPerson.id,
+                    toPerson: newPerson.id
                 ))
                 
                 // 添加反向关系（父亲或母亲）
                 try await stateManager.addRelationship(Relationship(
                     id: UUID(),
                     type: parentRelationType,
-                    fromPerson: targetPerson.id,
-                    toPerson: newPerson.id
+                    fromPerson: newPerson.id,
+                    toPerson: targetPerson.id
                 ))
                 
                 // 如果目标人物有配偶，也添加子女关系
@@ -469,15 +469,15 @@ extension PersonManagementViewModel {
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
                         type: .child,
-                        fromPerson: newPerson.id,
-                        toPerson: father.id
+                        fromPerson: father.id,
+                        toPerson: newPerson.id
                     ))
                     
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
                         type: .father,
-                        fromPerson: father.id,
-                        toPerson: newPerson.id
+                        fromPerson: newPerson.id,
+                        toPerson: father.id
                     ))
                 }
                 
@@ -486,15 +486,15 @@ extension PersonManagementViewModel {
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
                         type: .child,
-                        fromPerson: newPerson.id,
-                        toPerson: mother.id
+                        fromPerson: mother.id,
+                        toPerson: newPerson.id
                     ))
                     
                     try await stateManager.addRelationship(Relationship(
                         id: UUID(),
                         type: .mother,
-                        fromPerson: mother.id,
-                        toPerson: newPerson.id
+                        fromPerson: newPerson.id,
+                        toPerson: mother.id
                     ))
                 }
             }

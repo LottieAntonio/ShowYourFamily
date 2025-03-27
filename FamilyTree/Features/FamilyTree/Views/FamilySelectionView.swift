@@ -42,7 +42,7 @@ struct FamilySelectionView: View {
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(.systemBackground),
-                    Color.accentColor.opacity(0.1),
+                    Color.accentColor.opacity(0.3),
                     Color(.systemBackground)
                 ]),
                 startPoint: .topLeading,
@@ -76,11 +76,6 @@ struct FamilySelectionView: View {
             }
             .padding()
         }
-//        .toolbar {
-//            ToolbarItem(placement: .navigationBarTrailing) {
-//                profileButton
-//            }
-//        }
         .sheet(isPresented: $showingProfileSheet) {
             profileSheetView
                 .environmentObject(appViewModel)
@@ -177,22 +172,6 @@ struct FamilySelectionView: View {
                     }
                 }
         }
-    }
-    
-    private var createOptionsSheetView: some View {
-        CreateFamilyOptionsView(
-            isPresented: $showingCreateOptions,
-            onCreateEmpty: {
-                createMode = .empty
-                showingCreateOptions = false
-                showingFamilyInfoForm = true
-            },
-            onCreateFromDefault: {
-                createMode = .fromDefault
-                showingCreateOptions = false
-                showingFamilyInfoForm = true
-            }
-        )
     }
     
     private var familyInfoFormSheetView: some View {
@@ -446,10 +425,6 @@ struct FamilySelectionView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
         )
-//        .overlay(
-//            RoundedRectangle(cornerRadius: 20)
-//                .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
-//        )
         .onAppear {
             if isTopCard {
                 Task {
@@ -512,10 +487,6 @@ struct FamilySelectionView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
-        )
         .onTapGesture {
             createMode = .empty
             showingFamilyInfoForm = true
@@ -536,62 +507,6 @@ struct FamilySelectionView: View {
                 Image(systemName: "plus")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
-            }
-        }
-    }
-    
-    // CreateFamilyOptionsView 保持不变
-    struct CreateFamilyOptionsView: View {
-        @Binding var isPresented: Bool
-        let onCreateEmpty: () -> Void
-        let onCreateFromDefault: () -> Void
-        
-        var body: some View {
-            NavigationStack {
-                List {
-                    Section {
-                        Button(action: {
-                            isPresented = false
-                            onCreateEmpty()
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.badge.plus")
-                                VStack(alignment: .leading) {
-                                    Text("创建空白家谱")
-                                        .font(.headline)
-                                    Text("从零开始创建您的家谱")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        
-                        Button(action: {
-                            isPresented = false
-                            onCreateFromDefault()
-                        }) {
-                            HStack {
-                                Image(systemName: "doc.on.doc")
-                                VStack(alignment: .leading) {
-                                    Text("复制示例家谱")
-                                        .font(.headline)
-                                    Text("基于示例家谱创建，包含示例数据")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("创建家谱")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        isPresented = false
-                    }
-                }
             }
         }
     }

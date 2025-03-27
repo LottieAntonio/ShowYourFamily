@@ -11,6 +11,14 @@ import SwiftUI
 import Foundation
 import UIKit
 
+// 添加PersonCardError枚举定义
+enum PersonCardError: Error {
+    case personNotFound
+    case invalidData
+    case saveFailed
+    case deleteFailed
+}
+
 // 修改 PersonCardViewModel 以使用 RelationshipManager
 @MainActor
 class PersonCardViewModel: ObservableObject {
@@ -75,6 +83,42 @@ class PersonCardViewModel: ObservableObject {
             objectWillChange.send()
         }
     }
+
+    // 修改重置称谓缓存的方法
+    @objc private func resetTitleCache() {
+        print("PersonCardViewModel.resetTitleCache 被调用")
+        
+        // 先从数据库获取最新的人物数据，确保使用最新状态
+        if let personId = person?.id,
+           let updatedPerson = stateManager.state.persons.first(where: { $0.id == personId }) {
+            // 更新本地person对象
+            self.person = updatedPerson
+            print("resetTitleCache: 已从数据库更新person对象，isSelf: \(updatedPerson.isSelf)")
+            
+            // 如果当前人物是自己，直接设置为"自己"
+            if updatedPerson.isSelf {
+                self.cachedTitle = "自己"
+                print("resetTitleCache: 当前人物是自己，设置称谓为: 自己")
+            } else {
+                self.cachedTitle = nil
+                print("resetTitleCache: 当前人物不是自己，清除称谓缓存")
+            }
+        } else if let person = currentPerson {
+            print("resetTitleCache: 使用当前person对象，isSelf: \(person.isSelf)")
+            if person.isSelf {
+                self.cachedTitle = "自己"
+                print("resetTitleCache: 当前人物是自己，设置称谓为: 自己")
+            } else {
+                self.cachedTitle = nil
+                print("resetTitleCache: 当前人物不是自己，清除称谓缓存")
+            }
+        } else {
+            self.cachedTitle = nil
+            print("resetTitleCache: 当前人物为nil，清除称谓缓存")
+        }
+        
+        self.objectWillChange.send()
+    }
     
     // 修改初始化方法，添加 appViewModel 参数
     init(person: Person?, mode: PersonCardMode, stateManager: StateManager, appViewModel: FamilyAppViewModel? = nil) {
@@ -137,7 +181,16 @@ class PersonCardViewModel: ObservableObject {
         Task {
             await updateDisplayTitle()
         }
+        // 添加通知监听器，用于重置称谓缓存
+        NotificationCenter.default.addObserver(self, selector: #selector(resetTitleCache), name: NSNotification.Name("ResetTitleCache"), object: nil)
     }
+    
+
+    // 确保在deinit中移除观察者
+    deinit {
+    NotificationCenter.default.removeObserver(self)
+    }
+    
     
     // MARK: - Actions
     
@@ -418,41 +471,54 @@ class PersonCardViewModel: ObservableObject {
 
     
     @MainActor
+    // 设置当前人物为"自己"
     func setSelfPerson() async throws {
-        guard let person = person else { return }
-        
-        // 1. 检查当前家谱
-        guard let currentFamily = stateManager.state.currentFamily else {
-            throw FamilyError.noCurrentFamily
+        guard let person = currentPerson else {
+            throw PersonCardError.personNotFound
         }
         
-        // 2. 检查是否是默认家谱
-        if currentFamily.isDefault {
-            throw FamilyError.cannotModifyDefaultFamily
-        }
+        print("开始设置自己: \(person.name), ID: \(person.id)")
         
-        // 3. 检查人物是否属于当前家谱
-        if person.familyId != currentFamily.id {
-            throw FamilyError.personNotInCurrentFamily
-        }
-        
-        // 4. 将之前的"自己"标记取消
+        // 查找当前的"自己"
         if let oldSelf = stateManager.state.persons.first(where: { $0.isSelf }) {
+            print("找到旧的自己: \(oldSelf.name), ID: \(oldSelf.id)")
+            
+            // 取消旧的"自己"标记
             var updatedOldSelf = oldSelf
             updatedOldSelf.isSelf = false
             try await stateManager.updatePerson(updatedOldSelf)
+            print("已取消旧的自己标记")
         }
         
-        // 5. 设置新的"自己"
+        // 设置新的"自己"
         var updatedPerson = person
         updatedPerson.isSelf = true
         try await stateManager.updatePerson(updatedPerson)
+        print("已设置新的自己: \(updatedPerson.name), ID: \(updatedPerson.id)")
         
-        // 6. 通知 appViewModel 刷新数据
-        await appViewModel?.refreshData()
+        // 更新本地person对象
+        self.person = updatedPerson
+        print("已更新本地person对象，isSelf: \(updatedPerson.isSelf)")
         
-        // 7. 重新加载数据
-        await reloadData()
+        // 设置称谓缓存
+        self.cachedTitle = "自己"
+        print("已设置称谓缓存为: 自己")
+        
+        // 通知appViewModel刷新数据
+        if let appViewModel = appViewModel {
+            print("已通知appViewModel刷新数据")
+            
+            // 发送通知，包含更新后的人物
+            NotificationCenter.default.post(
+                name: NSNotification.Name("PersonUpdated"),
+                object: nil,
+                userInfo: ["person": updatedPerson]
+            )
+            print("已发送PersonUpdated通知，包含更新后的人物")
+        }
+        
+        // 强制刷新UI
+        self.objectWillChange.send()
     }
     
     
@@ -704,5 +770,7 @@ class PersonCardViewModel: ObservableObject {
         print("照片已更新到ViewModel")
     }
 }
+
+
 
 

@@ -40,11 +40,6 @@ class RelativeTitleGenerator {
         return "\(sourceId.uuidString)_\(targetId.uuidString)"
     }
     
-    // 清除缓存
-    private func clearCache() {
-        titleCache.removeAll()
-    }
-    
     // 更新数据
     func updateData(relationships: [Relationship], persons: [Person]) {
         self.relationships = relationships
@@ -68,12 +63,20 @@ class RelativeTitleGenerator {
         
         // 如果是自己，直接返回
         if relative.isSelf {
+            print("RelativeTitleGenerator: 检测到isSelf=true，直接返回'自己'")
             return "自己"
         }
         
         // 获取自己的信息
         guard let selfPerson = persons.first(where: { $0.isSelf }) else {
+            print("RelativeTitleGenerator: 未找到标记为自己的人物，返回名字")
             return relative.name
+        }
+        
+        // 如果当前人物ID与自己的ID相同，也返回"自己"
+        if relative.id == selfPerson.id {
+            print("RelativeTitleGenerator: 当前人物ID与自己ID相同，返回'自己'")
+            return "自己"
         }
         
         // 检查缓存
@@ -85,38 +88,6 @@ class RelativeTitleGenerator {
         // 设置处理超时
         let startTime = Date()
         let maxProcessTime: TimeInterval = 2.0 // 最多处理2秒
-        
-        // 检查是否存在直接关系
-        let directRelations = relationships.filter { relation in
-            (relation.fromPerson == selfPerson.id && relation.toPerson == relative.id) ||
-            (relation.fromPerson == relative.id && relation.toPerson == selfPerson.id)
-        }
-        
-       
-        // 直接检查父子关系
-        if let fatherRelation = directRelations.first(where: { 
-            $0.type == .father && $0.fromPerson == relative.id && $0.toPerson == selfPerson.id 
-        }) {
-            let title = RelationshipTitleMapper.getParentTitle(gender: .male)
-            titleCache[key] = title
-            return title
-        }
-        
-        if let motherRelation = directRelations.first(where: { 
-            $0.type == .mother && $0.fromPerson == relative.id && $0.toPerson == selfPerson.id 
-        }) {
-            let title = RelationshipTitleMapper.getParentTitle(gender: .female)
-            titleCache[key] = title
-            return title
-        }
-        
-        if let childRelation = directRelations.first(where: { 
-            $0.type == .child && $0.fromPerson == selfPerson.id && $0.toPerson == relative.id 
-        }) {
-            let title = RelationshipTitleMapper.getChildTitle(gender: relative.gender)
-            titleCache[key] = title
-            return title
-        }
         
         // 尝试查找最简单的称谓
         let baseTitle: String
@@ -142,12 +113,6 @@ class RelativeTitleGenerator {
             if Date().timeIntervalSince(startTime) > maxProcessTime {
                 return "关系复杂"
             }
-//            
-//            // 尝试生成简化的关系描述
-//            if let simplifiedTitle = findSimplifiedTitle(from: selfPerson, to: relative) {
-//                print("✅ 找到简化称谓: \(simplifiedTitle)")
-//                return simplifiedTitle
-//            }
             
             // 如果简化称谓也找不到，返回名字
             return "\(relative.name)"
@@ -160,21 +125,12 @@ class RelativeTitleGenerator {
         return finalTitle
     }
     
-//    // 尝试生成简化的称谓
-//    private func findSimplifiedTitle(from source: Person, to target: Person) -> String? {
-//        // 计算辈分差异
-//        let generationDiff = calculateGenerationDifference(from: source, to: target)
-//        
-//        // 根据辈分差异生成简化称谓
-//        if generationDiff != 0 {
-//            return RelationshipTitleMapper.getSimplifiedGenerationTitle(
-//                generationDiff: generationDiff, 
-//                gender: target.gender
-//            )
-//        }
-//        
-//        return nil
-//    }
+    // 清除缓存
+    func clearCache() {
+        print("RelativeTitleGenerator: 清除称谓缓存")
+        titleCache.removeAll()
+    }
+    
     
     // 计算辈分差异
     private func calculateGenerationDifference(from source: Person, to target: Person) -> Int {

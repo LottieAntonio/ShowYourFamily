@@ -21,10 +21,7 @@ class DescendantRelationHandler: BaseRelationHandler {
         // 使用直接关系查询
         let grandchildren = getGrandchildren(source.id)
         
-       
-        
         if grandchildren.contains(where: { $0.id == target.id }) {
-            
             // 确定是通过儿子还是女儿
             let children = getChildren(source.id)
             

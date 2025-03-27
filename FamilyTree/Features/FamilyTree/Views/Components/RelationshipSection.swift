@@ -82,12 +82,6 @@ struct RelationshipSection: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(.regularMaterial)
-                
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        Color.familyTheme.gradientFor(type).opacity(0.3),
-                        lineWidth: 1
-                    )
             }
             .shadow(
                 color: Color.familyTheme.primary.opacity(0.15),
