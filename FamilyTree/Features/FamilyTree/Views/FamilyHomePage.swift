@@ -3,11 +3,21 @@ import SwiftUI
 struct FamilyHomePage: View {
     @EnvironmentObject var appViewModel: FamilyAppViewModel
     @Environment(\.dismiss) private var dismiss
-    let family: Family
+    
+    // 将 family 改为 @State 属性，以便可以更新
+    let initialFamily: Family
+    @State private var family: Family
     
     @State private var showingContentView = false
     @State private var showingFamilyEditor = false
     @State private var shouldDismiss = false
+    @State private var refreshID = UUID() // 添加刷新ID
+    
+    // 修改初始化方法
+    init(family: Family) {
+        self.initialFamily = family
+        self._family = State(initialValue: family)
+    }
     
     var body: some View {
         NavigationStack {
@@ -65,8 +75,20 @@ struct FamilyHomePage: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingFamilyEditor) {
-                FamilyEditorView(family: family)
+            .sheet(isPresented: $showingFamilyEditor, onDismiss: {
+                // 在编辑页面关闭后，主动刷新数据
+                Task {
+                    if let updatedFamily = appViewModel.familyManager.families.first(where: { $0.id == family.id }) {
+                        await MainActor.run {
+                            self.family = updatedFamily
+                            self.refreshID = UUID() // 强制视图刷新
+                            print("家谱编辑后刷新 - 名称: \(updatedFamily.name), 描述: \(updatedFamily.description ?? "无"), 徽章类型: \(updatedFamily.badgeType), 徽章名称: \(updatedFamily.badgeImageName ?? "无")")
+                        }
+                    }
+                }
+            }) {
+                // 修改这里，传递当前最新的 family 对象
+                FamilyEditorView(family: appViewModel.familyManager.families.first(where: { $0.id == family.id }) ?? family)
                     .environmentObject(appViewModel)
             }
             .navigationDestination(isPresented: $showingContentView) {
@@ -85,19 +107,53 @@ struct FamilyHomePage: View {
                 dismiss()
             }
         }
+        .id(refreshID) // 添加 id 修饰符，用于强制刷新视图
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FamilyUpdated"))) { notification in
+            if let familyId = notification.userInfo?["familyId"] as? UUID, familyId == family.id {
+                // 当家谱更新时，刷新视图
+                Task {
+                    if let updatedFamily = appViewModel.familyManager.families.first(where: { $0.id == family.id }) {
+                        // 更新 family 状态变量
+                        await MainActor.run {
+                            self.family = updatedFamily
+                            self.refreshID = UUID() // 更新刷新ID，强制视图重新渲染
+                        }
+                    }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReturnToFamilySelection"))) { _ in
+            // 收到返到家谱选择页面的通知时，关闭当前页面
+            dismiss()
+        }
     }
     
     private var familyBadgeSection: some View {
         // 这里可以是用户自定义的族徽
-        // 暂时使用系统图标，后续可以替换为自定义图片
         ZStack {
             Circle()
                 .fill(Color.accentColor.opacity(0.1))
                 .frame(width: 200, height: 200)
             
-            Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
-                .font(.system(size: 50))
-                .foregroundColor(.accentColor)
+            if family.badgeType == .custom, let image = family.badgeImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 180, height: 180)
+                    .clipShape(Circle())
+            } else if family.badgeType == .sfSymbol, let name = family.badgeImageName {
+                Image(systemName: name)
+                    .font(.system(size: 80))
+                    .foregroundColor(.accentColor)
+            } else if family.badgeType == .emoji, let emoji = family.badgeImageName {
+                Text(emoji)
+                    .font(.system(size: 80))
+            } else {
+                // 默认图标
+                Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.accentColor)
+            }
         }
         .padding(.top, 10)
     }

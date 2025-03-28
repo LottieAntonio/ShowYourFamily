@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct FamilyEditorView: View {
     @EnvironmentObject var appViewModel: FamilyAppViewModel
@@ -12,10 +13,31 @@ struct FamilyEditorView: View {
     @State private var errorMessage = ""
     @State private var showingDeleteConfirmation = false
     
+    // 添加族徽相关状态
+    @State private var badgeType: Family.BadgeType
+    @State private var badgeImageName: String?
+    @State private var customImage: UIImage?
+    @State private var selectedBadgeIndex: Int = 0
+    @State private var showingImagePicker = false
+    
+    // 默认族徽选项
+    private let badgeOptions = Family.defaultBadgeOptions
+    
     init(family: Family) {
         self.family = family
         _name = State(initialValue: family.name)
         _description = State(initialValue: family.description ?? "")
+        _badgeType = State(initialValue: family.badgeType)
+        _badgeImageName = State(initialValue: family.badgeImageName)
+        _customImage = State(initialValue: family.badgeImage)
+        
+        // 设置初始选中的徽章索引
+        if family.badgeType == .custom {
+            _selectedBadgeIndex = State(initialValue: -1)
+        } else if let imageName = family.badgeImageName {
+            let index = Family.defaultBadgeOptions.firstIndex { $0.name == imageName && $0.type == family.badgeType } ?? 0
+            _selectedBadgeIndex = State(initialValue: index)
+        }
     }
     
     var body: some View {
@@ -29,22 +51,51 @@ struct FamilyEditorView: View {
                 }
                 
                 Section(header: Text("家族徽章")) {
-                    // 这里可以添加图片选择器
-                    // 暂时使用占位符
+                    // 族徽选择器
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 15) {
+                            // 默认族徽选项
+                            ForEach(0..<badgeOptions.count, id: \.self) { index in
+                                let option = badgeOptions[index]
+                                BadgeOptionView(
+                                    option: option,
+                                    isSelected: selectedBadgeIndex == index && badgeType != .custom,
+                                    action: {
+                                        selectedBadgeIndex = index
+                                        badgeType = option.type
+                                        badgeImageName = option.name
+                                        customImage = nil
+                                    }
+                                )
+                            }
+                            
+                            // 自定义上传选项
+                            CustomBadgeOptionView(
+                                image: customImage,
+                                isSelected: badgeType == .custom,
+                                action: {
+                                    showingImagePicker = true
+                                    badgeType = .custom
+                                    badgeImageName = nil
+                                }
+                            )
+                        }
+                        .padding(.vertical, 10)
+                    }
+                    .frame(height: 100)
+                    
+                    // 预览区域
                     HStack {
                         Spacer()
-                        VStack {
-                            Image(systemName: "photo.circle.fill")
-                                .font(.system(size: 60))
-                                .foregroundColor(.accentColor)
-                            
-                            Text("点击选择图片")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        BadgePreviewView(
+                            badgeType: badgeType,
+                            badgeImageName: badgeImageName,
+                            customImage: customImage
+                        )
                         Spacer()
                     }
-                    .padding()
+                    .frame(height: 150)
+                    .padding(.vertical, 10)
                 }
                 
                 // 添加删除家谱的部分
@@ -92,6 +143,38 @@ struct FamilyEditorView: View {
             } message: {
                 Text(errorMessage)
             }
+            .sheet(isPresented: $showingImagePicker) {
+                PhotosPicker(selection: Binding<PhotosPickerItem?>(
+                    get: { nil },
+                    set: { item in
+                        if let item = item {
+                            loadTransferable(from: item)
+                        }
+                    }
+                ), matching: .images) {
+                    Text("选择图片")
+                }
+            }
+        }
+    }
+    
+    // 加载图片
+    private func loadTransferable(from item: PhotosPickerItem) {
+        item.loadTransferable(type: Data.self) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    if let data = data, let image = UIImage(data: data) {
+                        self.customImage = image
+                        self.badgeType = .custom
+                        self.badgeImageName = nil
+                    }
+                case .failure(let error):
+                    print("图片加载失败: \(error)")
+                    self.errorMessage = "图片加载失败"
+                    self.showingError = true
+                }
+            }
         }
     }
     
@@ -101,10 +184,32 @@ struct FamilyEditorView: View {
                 var updatedFamily = family
                 updatedFamily.name = name
                 updatedFamily.description = description.isEmpty ? nil : description
+                updatedFamily.badgeType = badgeType
+                updatedFamily.badgeImageName = badgeImageName
+                updatedFamily.badgeImage = customImage
+                
+                // 打印调试信息
+                print("保存家谱信息 - ID: \(updatedFamily.id), 名称: \(updatedFamily.name), 族徽类型: \(updatedFamily.badgeType), 族徽名称: \(updatedFamily.badgeImageName ?? "无")")
                 
                 try await appViewModel.familyManager.updateFamily(updatedFamily)
+                
+                // 确保发送通知
                 await MainActor.run {
+                    // 手动发送通知，确保即使 FamilyManagementViewModel 中没有发送通知也能更新
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FamilyUpdated"),
+                        object: nil,
+                        userInfo: ["familyId": family.id]
+                    )
+                    
+                    // 关闭当前编辑页面
                     dismiss()
+                    
+                    // 发送一个自定义通知，让 FamilyHomePage 也关闭并返回到 FamilySelectionView
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ReturnToFamilySelection"),
+                        object: nil
+                    )
                 }
             } catch {
                 await MainActor.run {

@@ -79,12 +79,9 @@ private struct EditablePersonInfoView: View {
     @Binding var notes: String
     let dateFormatter: DateFormatter
     
-    // 移除这个状态，避免不必要的视图重建
-    // @State private var photoUpdateCounter = UUID()
-    
     var body: some View {
-        VStack {
-            // 修改PersonAvatarView的使用方式
+        VStack(spacing: 24) {
+            // 头像部分，移除动画效果，添加边框
             PersonAvatarView(
                 person: viewModel.currentPerson ?? Person(
                     familyId: UUID(),
@@ -92,7 +89,7 @@ private struct EditablePersonInfoView: View {
                     lastName: "",
                     gender: .male
                 ),
-                size: 80,
+                size: 100, // 保持头像尺寸
                 type: nil,
                 isEditable: true,
                 onPhotoSelected: { photoData in
@@ -100,83 +97,153 @@ private struct EditablePersonInfoView: View {
                         print("开始更新照片到ViewModel")
                         await viewModel.updatePhoto(data: photoData)
                         print("照片已更新到ViewModel")
-                        // 不再增加计数器强制刷新
                     }
                 }
             )
-            // 移除动态ID，避免视图重建
-            // .id("avatar-\(viewModel.currentPerson?.id.uuidString ?? UUID().uuidString)-\(photoUpdateCounter)")
+            .shadow(color: Color.familyTheme.primary.opacity(0.2), radius: 8, x: 0, y: 4)
             
-            HStack {
-                VStack(alignment: .leading) {
-                    TextField("姓", text: $lastName)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .onChange(of: lastName) { _, newValue in
-                            Task {
-                                await viewModel.updateLastName(newValue)
+            // 姓名部分使用卡片式设计
+            VStack(spacing: 16) {
+                // 姓名部分
+                HStack(spacing: 12) {
+                    // 姓氏输入框
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("姓")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        TextField("姓", text: $lastName)
+                            .font(.headline)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray6))
+                                    .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
+                            )
+                            .onChange(of: lastName) { _, newValue in
+                                Task {
+                                    await viewModel.updateLastName(newValue)
+                                }
                             }
-                        }
-                    TextField("名", text: $firstName)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .onChange(of: firstName) { _, newValue in
-                            Task {
-                                await viewModel.updateFirstName(newValue)
+                    }
+                    
+                    // 名字输入框
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("名")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        TextField("名", text: $firstName)
+                            .font(.headline)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray6))
+                                    .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
+                            )
+                            .onChange(of: firstName) { _, newValue in
+                                Task {
+                                    await viewModel.updateFirstName(newValue)
+                                }
                             }
-                        }
+                    }
                 }
                 
-                TextField("自定义称呼（留空则自动生成）", text: $notes, axis: .vertical)
-                    .lineLimit(3...6)
-                    .padding(8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-                    .onChange(of: notes) { _, newValue in
-                        Task {
-                            await viewModel.updateNotes(newValue)
+                // 自定义称呼
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("自定义称呼")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    TextField("留空则自动生成", text: $notes, axis: .vertical)
+                        .lineLimit(2...4)
+                        .font(.headline)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray6))
+                                .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
+                        )
+                        .onChange(of: notes) { _, newValue in
+                            Task {
+                                await viewModel.updateNotes(newValue)
+                            }
                         }
-                    }
-            }
-            
-            Picker("性别", selection: $gender) {
-                Text("男").tag(Person.Gender.male)
-                Text("女").tag(Person.Gender.female)
-            }
-            .pickerStyle(.segmented)
-            .padding(8)
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
-            .onChange(of: gender) { _, newValue in
-                Task {
-                    await viewModel.updateGender(newValue)
                 }
             }
+            .padding(.horizontal, 6)
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("出生日期")
-                    .foregroundStyle(.secondary)
+            // 修复性别选择器
+            VStack(alignment: .leading, spacing: 6) {
+                Text("性别")
                     .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
                 
-                TextField("直接输入（如：2004年9月1日、2004.9.1或2004）", text: $birthDateText)
-                    .padding(8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-                    .onChange(of: birthDateText) { _, newValue in
-                        if let date = parseDateString(newValue) {
-                            birthDate = date
-                            Task {
-                                await viewModel.updateBirthDate(date)
+                // 使用简化版的选择器，确保可点击性
+                Picker("性别", selection: $gender) {
+                    Text("男").tag(Person.Gender.male)
+                    Text("女").tag(Person.Gender.female)
+                }
+                .pickerStyle(.segmented)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
+                )
+                .onChange(of: gender) { _, newValue in
+                    Task {
+                        await viewModel.updateGender(newValue)
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+            
+            // 出生日期
+            VStack(alignment: .leading, spacing: 6) {
+                Text("出生日期")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 4)
+                
+                HStack {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 12)
+                    
+                    TextField("如：2004年9月1日、2004.9.1或2004", text: $birthDateText)
+                        .font(.headline)
+                        .padding(.vertical, 12)
+                        .onChange(of: birthDateText) { _, newValue in
+                            if let date = parseDateString(newValue) {
+                                birthDate = date
+                                Task {
+                                    await viewModel.updateBirthDate(date)
+                                }
                             }
                         }
-                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
+                )
             }
+            .padding(.horizontal, 6)
         }
-        .padding(30)
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white.opacity(0.8))
+                .shadow(color: Color.familyTheme.primary.opacity(0.1), radius: 15, x: 0, y: 10)
+        )
     }
     
+    // 保留原有的日期解析函数
     private func parseDateString(_ dateString: String) -> Date? {
         let text = dateString.trimmingCharacters(in: .whitespaces)
         

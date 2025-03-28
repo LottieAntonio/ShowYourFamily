@@ -9,11 +9,19 @@ struct Family: Codable, Identifiable, Hashable {
     var defaultLastName: String?  // 添加默认姓氏属性
     var createdAt: Date
     var lastModified: Date
-    var badgeImage: UIImage?
+    var badgeImageName: String?  // 存储SF符号名称或自定义图片的标识符
+    var badgeType: BadgeType  // 新增：标记徽章类型
+    var badgeImage: UIImage?  // 非持久化字段，仅用于UI显示
+    
+    enum BadgeType: String, Codable {
+        case sfSymbol  // 系统SF符号
+        case emoji     // Emoji表情
+        case custom    // 自定义上传图片
+    }
     
     // 自定义编码方法，因为 UIImage 不符合 Codable
     private enum CodingKeys: String, CodingKey {
-        case id, name, description, isDefault, defaultLastName, createdAt, lastModified
+        case id, name, description, isDefault, defaultLastName, createdAt, lastModified, badgeImageName, badgeType
     }
     
     init(
@@ -22,6 +30,8 @@ struct Family: Codable, Identifiable, Hashable {
         description: String? = nil,
         isDefault: Bool = false,
         defaultLastName: String? = nil,
+        badgeImageName: String? = "book.closed.fill",  // 默认使用书本图标
+        badgeType: BadgeType = .sfSymbol,
         badgeImage: UIImage? = nil,
         createdAt: Date = Date(),
         lastModified: Date = Date()
@@ -31,6 +41,8 @@ struct Family: Codable, Identifiable, Hashable {
         self.description = description
         self.isDefault = isDefault
         self.defaultLastName = defaultLastName
+        self.badgeImageName = badgeImageName
+        self.badgeType = badgeType
         self.badgeImage = badgeImage
         self.createdAt = createdAt
         self.lastModified = lastModified
@@ -43,5 +55,21 @@ struct Family: Codable, Identifiable, Hashable {
     
     static func == (lhs: Family, rhs: Family) -> Bool {
         lhs.id == rhs.id
+    }
+    
+    // 获取默认族徽选项
+    static var defaultBadgeOptions: [(name: String, type: BadgeType)] {
+        [
+            ("book.closed.fill", .sfSymbol),
+            ("person.2.fill", .sfSymbol),
+            ("house.fill", .sfSymbol),
+            ("tree.fill", .sfSymbol),
+            ("heart.fill", .sfSymbol),
+            ("👪", .emoji),
+            ("👨‍👩‍👧‍👦", .emoji),
+            ("🏠", .emoji),
+            ("🌳", .emoji),
+            ("❤️", .emoji)
+        ]
     }
 }
