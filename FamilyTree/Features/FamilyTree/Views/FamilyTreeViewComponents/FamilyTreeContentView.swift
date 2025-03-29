@@ -25,9 +25,46 @@ struct FamilyTreeContentView: View {
     
     var body: some View {
         ZStack {
-            Color.familyTheme.primary.opacity(0.4)
-                .edgesIgnoringSafeArea([.top, .horizontal])
-            
+            ZStack {
+                // 基础卡片形状
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(Color.white)
+                
+                // 添加镭射效果层 - 彩虹渐变
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                Color.red.opacity(0.2),
+                                Color.orange.opacity(0.2),
+                                Color.yellow.opacity(0.2),
+                                Color.green.opacity(0.2),
+                                Color.blue.opacity(0.2),
+                                Color.purple.opacity(0.2),
+                                Color.red.opacity(0.2)
+                            ]),
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(360)
+                        )
+                    )
+                
+                // 添加光泽效果层
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.7),
+                                Color.white.opacity(0.1),
+                                Color.white.opacity(0.7)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .opacity(0.8)
+            }
+            .edgesIgnoringSafeArea(.all)
             if isLocalLoading {
                 ProgressView("加载中...")
             } else if persons.isEmpty {

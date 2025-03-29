@@ -101,7 +101,7 @@ struct CurrentPersonRowContent: View {
                     selectedMode: $selectedMode
                 )
             }
-            .padding(8)
+            .padding(15)
             .gridCellColumns(2)
             // 使用background添加背景图片
             .background {
@@ -110,7 +110,7 @@ struct CurrentPersonRowContent: View {
         }
         // 在GridRow上直接添加背景和其他修饰符
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
                 .shadow(
                     color: Color.familyTheme.primary.opacity(0.2),
@@ -119,7 +119,7 @@ struct CurrentPersonRowContent: View {
                     y: 4
                 )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .opacity(isTransitioning ? 0.3 : 1)
         .scaleEffect(isTransitioning ? 0.8 : 1)
         // 添加Toast提示，使用更新后的CurrentPersonToastView

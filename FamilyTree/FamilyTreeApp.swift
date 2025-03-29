@@ -16,6 +16,7 @@ struct FamilyTreeApp: App {
                     await appViewModel.loadInitialData()
                 }
                 .environmentObject(appViewModel)
+                .tint(Color.familyTheme.primary) // 设置全局按钮颜色
         }
     }
 }

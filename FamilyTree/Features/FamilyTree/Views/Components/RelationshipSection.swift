@@ -9,6 +9,7 @@
 
 import SwiftUI
 
+// 修改 RelationshipSection 的布局和尺寸计算
 struct RelationshipSection: View {
     let title: String
     let persons: [Person]
@@ -19,23 +20,18 @@ struct RelationshipSection: View {
     @Binding var selectedPersonId: UUID?
     let type: RelationType
     
-    // 移除 viewModel 参数
-    // @ObservedObject var viewModel: PersonManagementViewModel
-    
-    // MARK: - Body
-    
-    // 添加计算属性来确定区域大小
+    // 调整区域大小计算
     private var sectionSize: CGSize {
         let screenWidth = UIScreen.main.bounds.width
         let padding: CGFloat = 40
-        let minWidth: CGFloat = 150 // 设置最小宽度
+        let minWidth: CGFloat = 150
         
         switch type {
         case .spouse, .child:
-            return CGSize(width: screenWidth, height: 100)
+            return CGSize(width: screenWidth, height: 120) // 增加高度
         default:
             let calculatedWidth = max((screenWidth - padding) / 2, minWidth)
-            return CGSize(width: calculatedWidth, height: 100)
+            return CGSize(width: calculatedWidth, height: 120) // 增加高度
         }
     }
     
@@ -59,20 +55,30 @@ struct RelationshipSection: View {
                 let uniqueCount = type == .spouse ? 
                     Set(persons.map { $0.id }).count : persons.count
                 
-                ScrollView(uniqueCount == 1 ? .vertical : .horizontal, showsIndicators: false) {
-                    HStack {
-                        PersonListView(
-                            persons: persons,
-                            animation: animation,  // 移除 stateManager 参数
-                            selectedPersonId: $selectedPersonId,
-                            onPersonTap: onPersonTap,
-                            type: type
-                        )
+                if uniqueCount == 1 {
+                    PersonListView(
+                        persons: persons,
+                        animation: animation,
+                        selectedPersonId: $selectedPersonId,
+                        onPersonTap: onPersonTap,
+                        type: type
+                    )
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) { // 增加间距
+                            PersonListView(
+                                persons: persons,
+                                animation: animation,
+                                selectedPersonId: $selectedPersonId,
+                                onPersonTap: onPersonTap,
+                                type: type
+                            )
+                        }
                     }
                 }
             }
         }
-        .padding(8)
+        .padding(15) // 增加整体内边距
         .frame(
             width: type == .spouse || type == .child ? nil : sectionSize.width, // 修改这里
             height: sectionSize.height,
@@ -80,7 +86,7 @@ struct RelationshipSection: View {
         )
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 16) // 增加圆角
                     .fill(.regularMaterial)
             }
             .shadow(
@@ -133,12 +139,12 @@ struct RelationshipBadge: View {
     
     var body: some View {
         Text(type.description)
-            .font(.system(size: 10))
+            .font(.system(size: 8)) // 减小字体
             .foregroundColor(type.textColor)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 3) // 减小水平内边距
+            .padding(.vertical, 1) // 减小垂直内边距
             .background(type.backgroundColor)
-            .cornerRadius(4)
+            .cornerRadius(3) // 减小圆角
     }
 }
 
@@ -153,24 +159,25 @@ private struct PersonItemView: View {
     
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 8) {
-                // 修改头像视图，添加点击事件拦截
+            HStack(spacing: 6) { // 减小间距
+                // 修改头像视图
                 ZStack {
                     PersonAvatarView(
                         person: person,
-                        size: 32,
+                        size: 36, // 增加头像尺寸
                         type: type,
                         isEditable: false
                     )
                     // 添加一个透明的覆盖层来确保点击事件正确传递
                     Color.clear
-                        .frame(width: 32, height: 32)
+                        .frame(width: 36, height: 36)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(person.name)
-                            .font(.headline)
+                            .font(.subheadline) // 调整字体
+                            .fontWeight(.medium)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         
@@ -186,29 +193,26 @@ private struct PersonItemView: View {
                         formatter.dateFormat = "yyyy年M月d日"
                         return formatter.string(from: date)
                     } ?? "未设置生日")
-                        .font(.caption)
+                        .font(.caption2) // 减小字体
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                Spacer()
-//                Image(systemName: "chevron.right")
-//                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4) // 设置最小间距
             }
-            .padding(11)
+            .padding(8) // 减小内边距
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(
                         Color.familyTheme.gradientFor(type)
                             .opacity(0.15)
                     )
                     .shadow(
                         color: Color.familyTheme.primary.opacity(0.1),
-                        radius: 5,
+                        radius: 4, // 减小阴影
                         x: 0,
                         y: 2
                     )
             )
-            // 确保整个按钮区域可点击
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -257,51 +261,83 @@ private struct HeaderView: View {
     let title: String
     let onAddTap: () -> Void
     let type: RelationType
-    @EnvironmentObject var appViewModel: FamilyAppViewModel  // 修改为 @EnvironmentObject
+    @EnvironmentObject var appViewModel: FamilyAppViewModel
     @State private var showingPotentialParents = false
     @State private var processingParentId: UUID?
     let localPersons: [Person]
     
-    @State private var canAdd: Bool = true  // 添加状态属性
+    @State private var canAdd: Bool = true
+    
+    // 为不同关系类型添加对应的emoji
+    private var relationshipEmoji: String {
+        switch type {
+        case .father: return "👨"
+        case .mother: return "👩"
+        case .spouse: return "💑"
+        case .child: return "👶"
+        case .brother: return "👦"
+        case .sister: return "👧"
+        }
+    }
     
     private var uniquePersonCount: Int {
         if type == .spouse {
-            // 对配偶进行去重计数
             return Set(localPersons.map { $0.id }).count
         }
         return localPersons.count
     }
     
     var body: some View {
-        // 将复杂的 HStack 拆分成更小的部分
         HStack {
-            // 标题部分
+            // 标题部分增加emoji和动画效果
             titleView
             
             Spacer()
             
-            // 菜单部分
+            // 添加人数指示器
+            if uniquePersonCount > 1 {
+                Text("\(uniquePersonCount)")
+                    .font(.caption)
+                    .padding(6)
+                    .background(
+                        Circle()
+                            .fill(Color.familyTheme.accent.opacity(0.2))
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+            
+            // 菜单按钮
             menuButton
         }
     }
-        
-        // 标题视图
+    
+    // 标题视图
     private var titleView: some View {
-        HStack(spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Color.familyTheme.primary)
+        HStack(spacing: 6) {
+            // 添加emoji
+            Text(relationshipEmoji)
+                .font(.system(size: 14))
+                .padding(4)
+                .background(
+                    Circle()
+                        .fill(Color.familyTheme.primary.opacity(0.3))
+                )
             
-            // 使用去重后的数量
-            if uniquePersonCount > 1 {
-                Text("(\(uniquePersonCount))")
-                    .font(.caption)
-                    .foregroundStyle(Color.familyTheme.primary.opacity(0.6))
-            }
+            Text(title)
+                .padding(.horizontal, 4)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.familyTheme.primary)
         }
+        .padding(.horizontal ,3)
+        .padding(.vertical ,4)
+        .background(
+            Capsule()
+                .fill(Color.familyTheme.primary.opacity(0.1))
+        )
     }
-        
-        // 菜单按钮
+    
+    // 菜单按钮
     private var menuButton: some View {
         Menu {
             // 兄弟姐妹关系的菜单项
@@ -310,9 +346,10 @@ private struct HeaderView: View {
             // 父母关系的菜单项
             parentMenuItems
         } label: {
-            Image(systemName: "ellipsis.circle.fill")
-                .foregroundStyle(Color.familyTheme.primary)
+            Image(systemName: canAdd ? "plus.circle.fill" : "ellipsis.circle.fill")
+                .foregroundStyle(canAdd ? Color.familyTheme.secondary : Color.familyTheme.primary)
                 .font(.callout)
+                .symbolEffect(.pulse, options: .repeating, value: canAdd)
         }
         .disabled(processingParentId != nil)
         .task {
@@ -328,7 +365,7 @@ private struct HeaderView: View {
             }
         }
     }
-        
+    
     // 兄弟姐妹关系的菜单项
     @ViewBuilder
     private var siblingMenuItems: some View {
@@ -338,7 +375,7 @@ private struct HeaderView: View {
                     Label("添加新\(title)", systemImage: "person.badge.plus")
                 }
             } else {
-                Text("需要先添加父母才能添加\(title)")
+                Label("需要先添加父母才能添加\(title)", systemImage: "exclamationmark.triangle")
                     .foregroundColor(.secondary)
             }
         } else {
@@ -348,8 +385,8 @@ private struct HeaderView: View {
             }
         }
     }
-        
-    // 父母关系的菜单项
+    
+    // 父母关系的菜单项 - 保持不变
     @ViewBuilder
     private var parentMenuItems: some View {
         // 只在父母关系中显示选择现有人物选项
@@ -368,8 +405,8 @@ private struct HeaderView: View {
             }
         }
     }
-        
-        // 父母按钮
+    
+    // 父母按钮 - 保持不变
     private func parentButton(for parent: Person) -> some View {
         Button(action: {
             processingParentId = parent.id
@@ -384,7 +421,7 @@ private struct HeaderView: View {
                         to: parent,
                         type: type
                     )
-                    await appViewModel.refreshData()  // 添加刷新
+                    await appViewModel.refreshData()
                 } catch {
                     print("添加关系失败：\(error.localizedDescription)")
                 }
@@ -404,7 +441,7 @@ private struct HeaderView: View {
         .disabled(processingParentId != nil)
     }
     
-    // 添加获取潜在父母的方法
+    // 获取潜在父母的方法 - 保持不变
     private func getPotentialParents(for person: Person, type: RelationType) -> [Person] {
         let otherParentType: RelationType = type == .father ? .mother : .father
         guard let otherParent = appViewModel.getStateManager().getRelatedPersons(for: person, relationType: otherParentType).first else {
@@ -476,10 +513,10 @@ private struct EmptyStateView: View {
     private var emptyStateLabel: some View {
         HStack {
             Text(canAdd ? "点击添加\(title)" : "需要先添加父母")
-                .font(.caption)
+                .font(.caption2) // 减小字体
                 .foregroundStyle(Color.familyTheme.primary)
         }
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(maxWidth: .infinity, minHeight: 36) // 减小最小高度
     }
         
     // 添加按钮部分

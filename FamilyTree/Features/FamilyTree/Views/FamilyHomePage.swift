@@ -132,19 +132,29 @@ struct FamilyHomePage: View {
         // 这里可以是用户自定义的族徽
         ZStack {
             Circle()
-                .fill(Color.accentColor.opacity(0.1))
+                .fill(Color.familyTheme.primary.opacity(0.1))
                 .frame(width: 200, height: 200)
             
-            if family.badgeType == .custom, let image = family.badgeImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 180, height: 180)
-                    .clipShape(Circle())
+            if family.badgeType == .custom {
+                if let image = family.badgeImage {
+                    // 如果有上传的自定义图片，优先使用
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 180, height: 180)
+                        .clipShape(Circle())
+                } else if let imageName = family.badgeImageName {
+                    // 否则从Assets加载图片
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 180, height: 180)
+                        .clipShape(Circle())
+                }
             } else if family.badgeType == .sfSymbol, let name = family.badgeImageName {
                 Image(systemName: name)
                     .font(.system(size: 80))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.familyTheme.primary)
             } else if family.badgeType == .emoji, let emoji = family.badgeImageName {
                 Text(emoji)
                     .font(.system(size: 80))
@@ -152,7 +162,7 @@ struct FamilyHomePage: View {
                 // 默认图标
                 Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
                     .font(.system(size: 80))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.familyTheme.primary)
             }
         }
         .padding(.top, 10)
@@ -164,6 +174,7 @@ struct FamilyHomePage: View {
                 Text("家族信息")
                     .font(.headline)
                     .fontWeight(.bold)
+                    .foregroundColor(Color.familyTheme.primary)
                 
                 Spacer()
             }
@@ -214,7 +225,7 @@ struct FamilyHomePage: View {
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                .shadow(color: Color.familyTheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
         )
     }
     
@@ -231,10 +242,10 @@ struct FamilyHomePage: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
-            .background(Color.accentColor)
+            .background(Color.familyTheme.primary)
             .foregroundColor(.white)
             .cornerRadius(25)
-            .shadow(color: Color.accentColor.opacity(0.4), radius: 5, x: 0, y: 3)
+            .shadow(color: Color.familyTheme.primary.opacity(0.4), radius: 5, x: 0, y: 3)
         }
     }
 }

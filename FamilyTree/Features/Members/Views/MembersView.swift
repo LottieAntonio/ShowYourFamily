@@ -22,8 +22,10 @@ struct MembersView: View {
                                     selectedMode = .edit
                                     showingPersonCard = true
                                 }
+                            }
                         }
-                    }
+                    .padding(.bottom, 68)
+                    
                 }
             }
             .sheet(isPresented: $showingPersonCard) {

@@ -30,8 +30,8 @@ struct Family: Codable, Identifiable, Hashable {
         description: String? = nil,
         isDefault: Bool = false,
         defaultLastName: String? = nil,
-        badgeImageName: String? = "book.closed.fill",  // 默认使用书本图标
-        badgeType: BadgeType = .sfSymbol,
+        badgeImageName: String? = "animal10",  // 默认使用书本图标
+        badgeType: BadgeType = .custom,
         badgeImage: UIImage? = nil,
         createdAt: Date = Date(),
         lastModified: Date = Date()
@@ -60,16 +60,24 @@ struct Family: Codable, Identifiable, Hashable {
     // 获取默认族徽选项
     static var defaultBadgeOptions: [(name: String, type: BadgeType)] {
         [
-            ("book.closed.fill", .sfSymbol),
-            ("person.2.fill", .sfSymbol),
-            ("house.fill", .sfSymbol),
-            ("tree.fill", .sfSymbol),
-            ("heart.fill", .sfSymbol),
-            ("👪", .emoji),
-            ("👨‍👩‍👧‍👦", .emoji),
-            ("🏠", .emoji),
-            ("🌳", .emoji),
-            ("❤️", .emoji)
+            ("animal3", .custom),
+            ("animal4", .custom),
+            ("animal5", .custom),
+            ("animal6", .custom),
+            ("animal7", .custom),
+            ("animal8", .custom),
+            ("animal9", .custom),
+            ("animal10", .custom),
+            ("animal11", .custom),
+            ("animal12", .custom),
+            ("animal13", .custom),
+            ("animal14", .custom),
+            ("animal15", .custom),
+            ("plant1", .custom),
+            ("plant2", .custom),
+            ("plant3", .custom),
+            ("plant4", .custom),
+            ("plant6", .custom)
         ]
     }
 }

@@ -75,6 +75,7 @@ struct FamilyTreeGridView: View {
             }
         }
         .padding()
+        .padding(.bottom, 68)
     }
 }
 

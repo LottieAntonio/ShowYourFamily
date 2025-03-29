@@ -15,7 +15,8 @@ struct FamilySelectionView: View {
     @State private var currentIndex = 0
     @State private var offset: CGFloat = 0
     @State private var isDragging = false
-    
+    @State private var refreshID = UUID()
+
     enum FamilyCreateMode {
         case empty
         case fromDefault
@@ -38,45 +39,25 @@ struct FamilySelectionView: View {
     
     private var mainContentView: some View {
         ZStack {
-            // 背景渐变
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(.systemBackground),
-                    Color.accentColor.opacity(0.3),
-                    Color(.systemBackground)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // 使用主题中定义的背景渐变
+            ZStack {
+                Color.familyTheme.primary
+                Image("black")
+                    .resizable()
+                    .scaledToFill()
+            }
             .edgesIgnoringSafeArea(.all)
-            
+
             VStack(spacing: 10) {  // 减小整体间距
-                // 标题区域
-                Text("家谱")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .padding(.top, 50)  // 减小顶部间距
-                
-                Text("选择或创建您的家族谱系")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 10)  // 减小底部间距
-                
+               
                 // 卡片堆叠区域
                 Spacer()
-                    .frame(height: 40)  // 添加一个固定高度的小间距
                 
                 cardStackView
                 
                 Spacer()
-                    .frame(minHeight: 0, maxHeight: .infinity, alignment: .bottom)  // 让底部空间可以伸缩
-                
-              
             }
             .padding()
-        }
-        .sheet(isPresented: $showingProfileSheet) {
-            profileSheetView
-                .environmentObject(appViewModel)
         }
         .sheet(isPresented: $showingFamilyInfoForm) {
             familyInfoFormSheetView
@@ -93,49 +74,7 @@ struct FamilySelectionView: View {
         }
     }
     
-    private var createFamilyButton: some View {
-        Button {
-            showingCreateOptions = true
-        } label: {
-            VStack {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 40))
-                Text("创建我的家谱")
-                    .font(.headline)
-            }
-            .frame(width: 160, height: 180)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.accentColor, lineWidth: 2)
-                    .background(Color(.systemBackground))
-            )
-        }
-    }
-    
-    private var profileButton: some View {
-        Button {
-            showingProfileSheet = true
-        } label: {
-            Image(systemName: "person.circle")
-                .font(.title2)
-        }
-    }
-    
-    private var profileSheetView: some View {
-        NavigationStack {
-            ProfileSettingsView()
-                .environmentObject(appViewModel)
-                .navigationTitle("个人中心")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("完成") {
-                            showingProfileSheet = false
-                        }
-                    }
-                }
-        }
-    }
+ 
     
     private var familyInfoFormSheetView: some View {
         FamilyInfoFormView(isPresented: $showingFamilyInfoForm) { name, description, badgeImageName, badgeType, customImage in
@@ -169,56 +108,6 @@ struct FamilySelectionView: View {
         }
     }
     
-    private func createFamilyWithInfo(
-        name: String, 
-        description: String,
-        badgeImageName: String?,
-        badgeType: Family.BadgeType,
-        customImage: UIImage?
-    ) async {
-        do {
-            switch createMode {
-            case .empty:
-                try await appViewModel.familyManager.createEmptyFamily(
-                    name: name, 
-                    description: description
-                )
-            case .fromDefault:
-                try await appViewModel.familyManager.createFamilyFromDefault(
-                    name: name, 
-                    description: description
-                )
-            }
-            
-            if let newFamily = appViewModel.currentFamily {
-                await appViewModel.familyManager.switchFamily(newFamily)
-                selectedFamily = newFamily
-            }
-        } catch {
-            appViewModel.errorMessage = error.localizedDescription
-            showingError = true
-        }
-    }
-    
-    
-    private func createFamilyWithInfo(name: String, description: String) async {
-        do {
-            switch createMode {
-            case .empty:
-                try await appViewModel.familyManager.createEmptyFamily(name: name, description: description)
-            case .fromDefault:
-                try await appViewModel.familyManager.createFamilyFromDefault(name: name, description: description)
-            }
-            
-            if let newFamily = appViewModel.currentFamily {
-                await appViewModel.familyManager.switchFamily(newFamily)  // 修改这里
-                selectedFamily = newFamily
-            }
-        } catch {
-            appViewModel.errorMessage = error.localizedDescription
-            showingError = true
-        }
-    }
     
     
     // 卡片堆叠视图
@@ -298,24 +187,6 @@ struct FamilySelectionView: View {
                 }
             }
             .frame(height: 400) // 增加卡片区域的高度
-            
-//            // 添加分页指示器
-//            HStack(spacing: 8) {
-//                ForEach(0..<totalItems, id: \.self) { index in
-//                    Circle()
-//                        .fill(index == currentIndex ? Color.accentColor : Color.gray.opacity(0.3))
-//                        .frame(width: 8, height: 8)
-//                        .scaleEffect(index == currentIndex ? 1.2 : 1)
-//                        .animation(.spring(), value: currentIndex)
-//                        .onTapGesture {
-//                            // 点击指示器直接跳转到对应卡片
-//                            withAnimation(.spring()) {
-//                                currentIndex = index
-//                            }
-//                        }
-//                }
-//            }
-//            .padding(.top, 20)
         }
         .frame(height: 450) // 增加整个卡片堆叠视图的高度
         .onChange(of: currentIndex) { newIndex in
@@ -362,7 +233,7 @@ struct FamilySelectionView: View {
                 // 添加调试信息
                 print("拖动结束: \(value.translation.width), 当前索引: \(currentIndex), 总项目: \(totalItems)")
                 
-                // 使用更自然的弹簧动画
+                // 使用更自然的弹簧动画，并使用主题颜色
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.5)) {
                     if value.translation.width < -threshold && currentIndex < totalItems - 1 {
                         // 向左滑动，显示下一张卡片
@@ -380,198 +251,316 @@ struct FamilySelectionView: View {
             }
     }
         
-        // 计算卡片缩放比例
-        private func calculateScale(for index: Int) -> CGFloat {
-            let offset = index - currentIndex
-            if offset == 0 {
-                return 1.0
-            } else if offset == 1 {
-                return 0.9
-            } else if offset == 2 {
-                return 0.8
-            } else {
-                return 0.7
-            }
-        }
-    
-    // 单个家谱卡片视图 - 用于卡片堆叠效果
-    // 修改 familyCardView 方法，使用 getMemberCount 获取缓存的成员数量
-    // 在 FamilySelectionView 的属性中添加
-    @State private var refreshID = UUID()
+  
     
     // 然后在 familyCardView 方法中
+    // 提取通用的卡片背景视图
+    private func cardBackgroundView() -> some View {
+        ZStack {
+            // 基础卡片形状
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+                
+            // 添加镭射效果层 - 彩虹渐变
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            Color.red.opacity(0.2),
+                            Color.orange.opacity(0.2),
+                            Color.yellow.opacity(0.2),
+                            Color.green.opacity(0.2),
+                            Color.blue.opacity(0.2),
+                            Color.purple.opacity(0.2),
+                            Color.red.opacity(0.2)
+                        ]),
+                        center: .center,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(360)
+                    )
+                )
+                
+            // 添加光泽效果层
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.white.opacity(0.7),
+                            Color.white.opacity(0.1),
+                            Color.white.opacity(0.7)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .opacity(0.8)
+                
+            // 添加边框 - 增强镭射感
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.white,
+                            Color.white.opacity(0.5),
+                            Color.white
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+        }
+    }
+    
+    // 提取通用的圆形背景视图
+    private func circleBackgroundView() -> some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.familyTheme.primary.opacity(0.7),
+                        Color.familyTheme.primary
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 180, height: 180)
+    }
+    
+    // 提取通用的底部信息区域背景
+    private func bottomInfoBackgroundView() -> some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.8))
+            .cornerRadius(20, corners: .bottomLeft)
+            .cornerRadius(20, corners: .bottomRight)
+    }
+    
+    // 修改后的家谱卡片视图
     private func familyCardView(for family: Family, at index: Int) -> some View {
         let isTopCard = index == currentIndex
-        
-        // 修改这里：使用 getMemberCount 方法获取缓存的成员数量
         let memberCount = appViewModel.familyManager.getMemberCount(for: family.id)
         
-        return VStack {
-            Spacer()
-            
-            // 放大族徽部分并居中
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 160, height: 160)
+        return ZStack {
+            cardBackgroundView()
                 
-                if family.badgeType == .custom, let image = family.badgeImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 140, height: 140)
-                        .clipShape(Circle())
-                } else if family.badgeType == .sfSymbol, let name = family.badgeImageName {
-                    Image(systemName: name)
-                        .font(.system(size: 80))
-                        .foregroundColor(.accentColor)
-                } else if family.badgeType == .emoji, let emoji = family.badgeImageName {
-                    Text(emoji)
-                        .font(.system(size: 80))
-                } else {
-                    // 默认图标
-                    Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(.accentColor)
+            // 内容层
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // 放大族徽部分并居中
+                ZStack {
+                    circleBackgroundView()
+                    
+                    // 族徽图标部分
+                    badgeIconView(for: family, isTopCard: isTopCard)
                 }
-            }
-            
-            Spacer()
-            
-            // 底部信息区域
-            VStack(spacing: 8) {
-                // 家谱名称
-                Text(family.name)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                // 家谱描述
-                if let description = family.description, !description.isEmpty {
-                    Text(description)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal)
+                Spacer()
+
+                // 底部信息区域
+                VStack(spacing: 6) {
+                    // 家谱名称 - 添加emoji装饰
+                    HStack(spacing: 6) {
+                        // 添加emoji
+                        Text("📜")
+                            .font(.system(size: 16))
+                            .padding(4)
+                            .background(
+                                Circle()
+                                    .fill(Color.familyTheme.primary.opacity(0.3))
+                            )
+                        
+                        Text(family.name)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .padding(.trailing, 8)
+                            .foregroundColor(Color.familyTheme.primary)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.familyTheme.primary.opacity(0.1))
+                    )
+                    
+                    // 添加分隔线
+                    Rectangle()
+                        .fill(Color.familyTheme.primary.opacity(0.3))
+                        .frame(width: 40, height: 1)
+                        .padding(.vertical, 3)
+                    
+                    // 家谱描述
+                    if let description = family.description, !description.isEmpty {
+                        Text(description)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .padding(.horizontal)
+                    }
+                    
+                    // 成员数量
+                    HStack {
+                        Image(systemName: "person.3.fill")
+                            .font(.footnote)
+                            .foregroundColor(Color.familyTheme.primary.opacity(0.7))
+                        Text("\(memberCount) 位成员")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical,3)
                 }
-                
-                // 成员数量
-                Text("\(memberCount) 位成员")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 5)
+                .frame(width: 320)
+                .padding(.vertical, 15)
+                .background(bottomInfoBackgroundView())
             }
-            .padding(.bottom, 20)
-            .padding(.horizontal)
-            .frame(width: 320)
-            .background(
-                Rectangle()
-                    .fill(Color(.systemBackground).opacity(0.8))
-                    .cornerRadius(20, corners: [.bottomLeft, .bottomRight])
-            )
         }
-        .frame(width: 320, height: 400)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-        )
+        .frame(width: 320, height: 450)
         .onAppear {
             if isTopCard {
                 Task {
-                    // 只有当前卡片才加载成员数量
                     await appViewModel.familyManager.loadMemberCount(for: family.id)
                 }
             }
         }
-        // 简化通知监听逻辑
         .id("family-\(family.id)-\(memberCount)")
     }
     
-    // 创建家谱卡片视图 - 用于卡片堆叠效果
-    private var createFamilyCardView: some View {
-        VStack {
-            Spacer()
-            
-            // 图标
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 160, height: 160) // 放大图标区域
-                
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 80)) // 放大图标
-                    .foregroundColor(.accentColor)
-            }
-            
-            Spacer()
-            
-            // 底部信息区域
-            VStack(spacing: 8) {
-                // 标题
-                Text("创建您的家谱")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                // 描述
-                Text("开始记录您的家族历史和关系")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                // 按钮
-                Button(action: {
-                    // 直接设置为创建空白家谱模式并显示信息表单
-                    createMode = .empty
-                    showingFamilyInfoForm = true
-                }) {
-                    Text("开始创建")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 30)
-                        .padding(.vertical, 12)
-                        .background(Color.accentColor)
-                        .cornerRadius(25)
+    // 提取族徽图标视图
+    private func badgeIconView(for family: Family, isTopCard: Bool) -> some View {
+        Group {
+            if family.badgeType == .custom {
+                if let image = family.badgeImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 160, height: 160)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        .scaleEffect(isTopCard ? 1.05 : 1.0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTopCard)
+                } else if let imageName = family.badgeImageName {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 160, height: 160)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        .scaleEffect(isTopCard ? 1.05 : 1.0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTopCard)
                 }
-                .padding(.top, 10)
+            } else if family.badgeType == .sfSymbol, let name = family.badgeImageName {
+                Image(systemName: name)
+                    .font(.system(size: 80))
+                    .foregroundColor(Color.white)
+                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    .scaleEffect(isTopCard ? 1.05 : 1.0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTopCard)
+            } else if family.badgeType == .emoji, let emoji = family.badgeImageName {
+                Text(emoji)
+                    .font(.system(size: 80))
+                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    .scaleEffect(isTopCard ? 1.05 : 1.0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTopCard)
+            } else {
+                Image(systemName: family.isDefault ? "book.closed.fill" : "person.2.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(Color.white)
+                    .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    .scaleEffect(isTopCard ? 1.05 : 1.0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isTopCard)
             }
-            .padding(.bottom, 30)
-            .padding(.horizontal)
-            .frame(width: 320) // 增加底部信息区域宽度
-            .background(
-                Rectangle()
-                    .fill(Color(.systemBackground).opacity(0.8))
-                    .cornerRadius(20, corners: [.bottomLeft, .bottomRight])
-            )
-        }
-        .frame(width: 320, height: 400) // 增加整个卡片的尺寸
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-        )
-        .onTapGesture {
-            createMode = .empty
-            showingFamilyInfoForm = true
         }
     }
     
-    // 创建家谱浮动按钮
-    private var createFamilyFloatingButton: some View {
-        Button(action: {
-            showingCreateOptions = true
-        }) {
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 60, height: 60)
-                    .shadow(color: Color.accentColor.opacity(0.3), radius: 5, x: 0, y: 3)
+    // 修改后的创建家谱卡片视图
+    private var createFamilyCardView: some View {
+        let isTopCard = currentIndex == appViewModel.familyManager.families.count
+        
+        return ZStack {
+            cardBackgroundView()
+            
+            // 内容层
+            VStack(spacing: 0) {
+                Spacer()
+                // 图标
+                ZStack {
+                    circleBackgroundView()
+                    
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(Color.white.opacity(0.8))
+                        .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 3)
+                        .scaleEffect(isTopCard ? 1.05 : 1.0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: currentIndex)
+                }
+                Spacer()
                 
-                Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                // 底部信息区域
+                VStack(spacing: 6) {
+                    // 标题 - 添加emoji装饰
+                    HStack(spacing: 6) {
+                        // 添加emoji
+                        Text("✨")
+                            .font(.system(size: 16))
+                            .padding(4)
+                            .background(
+                                Circle()
+                                    .fill(Color.familyTheme.primary.opacity(0.3))
+                            )
+                        
+                        Text("创建您的家谱")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .padding(.trailing, 8)
+                            .foregroundColor(Color.familyTheme.primary)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.familyTheme.primary.opacity(0.1))
+                    )
+                    
+                    // 添加分隔线
+                    Rectangle()
+                        .fill(Color.familyTheme.primary.opacity(0.3))
+                        .frame(width: 40, height: 1)
+                        .padding(.vertical, 3)
+                    
+                    // 描述
+                    Text("开始记录您的家族历史和关系")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    // 按钮
+                    Button(action: {
+                        createMode = .empty
+                        showingFamilyInfoForm = true
+                    }) {
+                        Text("开始创建")
+                            .font(.footnote)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(Color.familyTheme.primary)
+                            .cornerRadius(15)
+                    }
+                    .padding(.top, 5)
+                    .padding(.bottom, 8)
+                }
+                .frame(width: 320)
+                .padding(.vertical, 12)
+                .background(bottomInfoBackgroundView())
             }
+        }
+        .frame(width: 320, height: 450)
+        .onTapGesture {
+            createMode = .empty
+            showingFamilyInfoForm = true
         }
     }
     

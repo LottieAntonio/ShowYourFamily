@@ -27,6 +27,17 @@ struct FamilyInfoFormView: View {
                 Section(header: Text("选择族徽")) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 15) {
+                            // 自定义上传选项
+                            CustomBadgeOptionView(
+                                image: customImage,
+                                isSelected: badgeType == .custom,
+                                action: {
+                                    showingImagePicker = true
+                                    badgeType = .custom
+                                    badgeImageName = nil
+                                }
+                            )
+                            
                             // 默认族徽选项
                             ForEach(0..<badgeOptions.count, id: \.self) { index in
                                 let option = badgeOptions[index]
@@ -45,16 +56,7 @@ struct FamilyInfoFormView: View {
                                 )
                             }
                             
-                            // 自定义上传选项
-                            CustomBadgeOptionView(
-                                image: customImage,
-                                isSelected: badgeType == .custom,
-                                action: {
-                                    showingImagePicker = true
-                                    badgeType = .custom
-                                    badgeImageName = nil
-                                }
-                            )
+                            
                         }
                         .padding(.vertical, 10)
                     }
@@ -82,6 +84,7 @@ struct FamilyInfoFormView: View {
                     Button("取消") {
                         isPresented = false
                     }
+                    .foregroundColor(Color.familyTheme.secondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("确定") {
@@ -92,6 +95,7 @@ struct FamilyInfoFormView: View {
                         isPresented = false
                     }
                     .disabled(familyName.isEmpty)
+                    .foregroundColor(Color.familyTheme.primary)
                 }
             }
             .sheet(isPresented: $showingImagePicker) {
@@ -118,13 +122,20 @@ struct BadgeOptionView: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.gray.opacity(0.1))
+                    .fill(isSelected ? Color.familyTheme.primary.opacity(0.2) : Color.gray.opacity(0.1))
                     .frame(width: 70, height: 70)
                 
-                if option.type == .sfSymbol {
+                if option.type == .custom {
+                    // 从Assets加载自定义图片
+                    Image(option.name)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 50, height: 50)
+                        .clipShape(Circle())
+                } else if option.type == .sfSymbol {
                     Image(systemName: option.name)
                         .font(.system(size: 30))
-                        .foregroundColor(isSelected ? .accentColor : .gray)
+                        .foregroundColor(isSelected ? Color.familyTheme.primary : .gray)
                 } else if option.type == .emoji {
                     Text(option.name)
                         .font(.system(size: 30))
@@ -132,7 +143,7 @@ struct BadgeOptionView: View {
                 
                 if isSelected {
                     Circle()
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .strokeBorder(Color.familyTheme.primary, lineWidth: 2)
                         .frame(width: 70, height: 70)
                 }
             }
@@ -150,7 +161,7 @@ struct CustomBadgeOptionView: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.gray.opacity(0.1))
+                    .fill(isSelected ? Color.familyTheme.primary.opacity(0.2) : Color.gray.opacity(0.1))
                     .frame(width: 70, height: 70)
                 
                 if let image = image {
@@ -162,12 +173,12 @@ struct CustomBadgeOptionView: View {
                 } else {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 30))
-                        .foregroundColor(isSelected ? .accentColor : .gray)
+                        .foregroundColor(isSelected ? Color.familyTheme.primary : .gray)
                 }
                 
                 if isSelected {
                     Circle()
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .strokeBorder(Color.familyTheme.primary, lineWidth: 2)
                         .frame(width: 70, height: 70)
                 }
             }
@@ -184,19 +195,29 @@ struct BadgePreviewView: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color.accentColor.opacity(0.1))
+                .fill(Color.familyTheme.primary.opacity(0.1))
                 .frame(width: 120, height: 120)
             
-            if badgeType == .custom, let image = customImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 100, height: 100)
-                    .clipShape(Circle())
+            if badgeType == .custom {
+                if let image = customImage {
+                    // 显示上传的自定义图片
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                } else if let name = badgeImageName {
+                    // 从Assets加载自定义图片
+                    Image(name)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                }
             } else if badgeType == .sfSymbol, let name = badgeImageName {
                 Image(systemName: name)
                     .font(.system(size: 60))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.familyTheme.primary)
             } else if badgeType == .emoji, let emoji = badgeImageName {
                 Text(emoji)
                     .font(.system(size: 60))

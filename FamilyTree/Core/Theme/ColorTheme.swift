@@ -2,6 +2,11 @@ import SwiftUI
 
 extension Color {
     static let familyTheme = FamilyThemeColors()
+    
+    // 重写系统的 accentColor，使其使用我们的主题色
+    static var accentColor: Color {
+        return Color.familyTheme.primary // 使用紫色作为强调色
+    }
 }
 
 struct FamilyThemeColors {
@@ -10,11 +15,36 @@ struct FamilyThemeColors {
     let secondary = Color(hex: "A855F7")  // 紫色
     let accent = Color(hex: "EC4899")     // 粉色
     
+    // 互补色调 - 绿色系列
+    let complementary = Color(hex: "00B5B0")    // 蒂芙尼蓝绿色
+    let marsGreen = Color(hex: "01A368")        // 马尔斯绿
+    let leafGreen = Color(hex: "2E6E41")        // 树叶深绿色
+    
     // 背景渐变
     let backgroundGradient = LinearGradient(
         colors: [
             Color(hex: "F5F3FF").opacity(0.8),
             Color(hex: "EDE9FE").opacity(0.5)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    // 绿色系渐变
+    let greenGradient = LinearGradient(
+        colors: [
+            Color(hex: "00B5B0"),  // 蒂芙尼蓝绿色
+            Color(hex: "01A368")   // 马尔斯绿
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
+    // 深绿色渐变
+    let deepGreenGradient = LinearGradient(
+        colors: [
+            Color(hex: "01A368"),  // 马尔斯绿
+            Color(hex: "2E6E41")   // 树叶深绿色
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing

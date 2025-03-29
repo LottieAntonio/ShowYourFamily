@@ -54,6 +54,18 @@ struct FamilyEditorView: View {
                     // 族徽选择器
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 15) {
+
+                            // 自定义上传选项
+                            CustomBadgeOptionView(
+                                image: customImage,
+                                isSelected: badgeType == .custom,
+                                action: {
+                                    showingImagePicker = true
+                                    badgeType = .custom
+                                    badgeImageName = nil
+                                }
+                            )
+                            
                             // 默认族徽选项
                             ForEach(0..<badgeOptions.count, id: \.self) { index in
                                 let option = badgeOptions[index]
@@ -68,17 +80,7 @@ struct FamilyEditorView: View {
                                     }
                                 )
                             }
-                            
-                            // 自定义上传选项
-                            CustomBadgeOptionView(
-                                image: customImage,
-                                isSelected: badgeType == .custom,
-                                action: {
-                                    showingImagePicker = true
-                                    badgeType = .custom
-                                    badgeImageName = nil
-                                }
-                            )
+                           
                         }
                         .padding(.vertical, 10)
                     }
@@ -107,7 +109,7 @@ struct FamilyEditorView: View {
                             HStack {
                                 Spacer()
                                 Text("删除家谱")
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Color.red)
                                 Spacer()
                             }
                         }
@@ -129,6 +131,7 @@ struct FamilyEditorView: View {
                     Button("取消") {
                         dismiss()
                     }
+                    .foregroundColor(Color.familyTheme.secondary)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -136,6 +139,7 @@ struct FamilyEditorView: View {
                         saveChanges()
                     }
                     .disabled(name.isEmpty)
+                    .foregroundColor(Color.familyTheme.primary)
                 }
             }
             .alert("错误", isPresented: $showingError) {

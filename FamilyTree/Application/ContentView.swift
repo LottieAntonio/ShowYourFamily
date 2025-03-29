@@ -439,16 +439,8 @@ struct MainContentView: View {
                 case .familyTree:
                     // 主内容
                     ZStack(alignment: .top) {
-                        VStack(spacing: 0) {
-                            FamilyTreeView()
-                                .environmentObject(appViewModel)
-                            RoundedRectangle(cornerRadius: 5)
-                                .frame(height: 68)
-                                .foregroundStyle(Color.clear)
-                                .ignoresSafeArea()
-                                .background(Color.familyTheme.primary.opacity(0.4))
-                        }
-                        
+                        FamilyTreeView()
+                            .environmentObject(appViewModel)
                         // 添加顶部下拉提示
                         if !isDragging && !hideTopPullDownHint {
                             TopPullDownHint(isVisible: $showTopHint, dontShowAgain: {
@@ -517,8 +509,6 @@ struct MainContentView: View {
                         if let currentFamily = appViewModel.currentFamily {
                             MembersView(family: currentFamily)
                                 .environmentObject(appViewModel)
-                                .padding(.bottom, tabBarHeight) // 添加底部内边距
-
                         } else {
                             ContentUnavailableView("请先选择家谱", systemImage: "person.3.sequence")
                         }

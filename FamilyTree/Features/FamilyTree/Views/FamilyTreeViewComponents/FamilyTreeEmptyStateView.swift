@@ -7,8 +7,8 @@ struct FamilyTreeEmptyStateView: View {
     var body: some View {
         Button(action: showAddPerson) {
             // 只保留图标，去掉所有文字
-            Image(systemName: "person.3.fill")
-                .font(.system(size: 50))
+            Image(systemName: "person.fill")
+                .font(.system(size: 60))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color.familyTheme.primary, Color.familyTheme.accent],
