@@ -64,7 +64,6 @@ private struct ReadOnlyPersonInfoView: View {
 }
 
 // EditablePersonInfoView 组件
-// 在EditablePersonInfoView中修改
 private struct EditablePersonInfoView: View {
     let viewModel: PersonCardViewModel
     @Binding var lastName: String
@@ -74,6 +73,14 @@ private struct EditablePersonInfoView: View {
     @Binding var birthDateText: String
     @Binding var notes: String
     let dateFormatter: DateFormatter
+    
+    // 添加键盘焦点状态
+    @FocusState private var focusedField: FocusField?
+    
+    // 定义可聚焦的字段
+    enum FocusField {
+        case lastName, firstName, notes, birthDate
+    }
     
     var body: some View {
         VStack(spacing: 24) {
@@ -112,6 +119,11 @@ private struct EditablePersonInfoView: View {
                         TextField("姓", text: $lastName)
                             .font(.headline)
                             .padding(12)
+                            .focused($focusedField, equals: .lastName)
+                            .submitLabel(.next)
+                            .onSubmit {
+                                focusedField = .firstName
+                            }
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color(.systemGray6))
@@ -134,6 +146,11 @@ private struct EditablePersonInfoView: View {
                         TextField("名", text: $firstName)
                             .font(.headline)
                             .padding(12)
+                            .focused($focusedField, equals: .firstName)
+                            .submitLabel(.next)
+                            .onSubmit {
+                                focusedField = .notes
+                            }
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color(.systemGray6))
@@ -158,6 +175,11 @@ private struct EditablePersonInfoView: View {
                         .lineLimit(2...4)
                         .font(.headline)
                         .padding(12)
+                        .focused($focusedField, equals: .notes)
+                        .submitLabel(.next)
+                        .onSubmit {
+                            focusedField = .birthDate
+                        }
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(.systemGray6))
@@ -214,6 +236,11 @@ private struct EditablePersonInfoView: View {
                     TextField("如：2004年9月1日、2004.9.1或2004", text: $birthDateText)
                         .font(.headline)
                         .padding(.vertical, 12)
+                        .focused($focusedField, equals: .birthDate)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            focusedField = nil
+                        }
                         .onChange(of: birthDateText) { _, newValue in
                             if let date = parseDateString(newValue) {
                                 birthDate = date
@@ -237,6 +264,17 @@ private struct EditablePersonInfoView: View {
                 .fill(Color.white.opacity(0.8))
                 .shadow(color: Color.familyTheme.primary.opacity(0.1), radius: 15, x: 0, y: 10)
         )
+        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
+        .toolbar {
+            ToolbarItem(placement: .keyboard) {
+                HStack {
+                    Spacer()
+                    Button("完成") {
+                        focusedField = nil
+                    }
+                }
+            }
+        }
     }
     
     // 保留原有的日期解析函数
@@ -331,6 +369,7 @@ struct PersonBasicInfoSection: View {
                 }
             }
         }
+        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
         .onReceive(viewModel.$state) { newState in
             lastName = newState.basicInfo.lastName
             firstName = newState.basicInfo.firstName

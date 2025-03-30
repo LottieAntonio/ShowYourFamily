@@ -40,13 +40,31 @@ struct FamilyEditorView: View {
         }
     }
     
+    // 添加键盘相关状态
+    @FocusState private var focusedField: FocusField?
+    
+    // 定义可聚焦的字段
+    enum FocusField {
+        case name, description
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("基本信息")) {
                     TextField("家族名称", text: $name)
+                        .focused($focusedField, equals: .name)
+                        .submitLabel(.next)
+                        .onSubmit {
+                            focusedField = .description
+                        }
                     
                     TextField("家族描述", text: $description, axis: .vertical)
+                        .focused($focusedField, equals: .description)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            focusedField = nil
+                        }
                         .lineLimit(3...6)
                 }
                 
@@ -142,7 +160,17 @@ struct FamilyEditorView: View {
                     }
                     .disabled(name.isEmpty)
                 }
+                
+                ToolbarItem(placement: .keyboard) {
+                    HStack {
+                        Spacer()
+                        Button("完成") {
+                            focusedField = nil
+                        }
+                    }
+                }
             }
+            .dismissKeyboardOnTap()
             .alert("错误", isPresented: $showingError) {
                 Button("确定", role: .cancel) { }
             } message: {

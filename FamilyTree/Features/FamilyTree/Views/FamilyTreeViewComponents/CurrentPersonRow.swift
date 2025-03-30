@@ -253,19 +253,28 @@ struct PersonCardWrapper: View {
     @Binding var selectedMode: PersonCardMode
     
     var body: some View {
-        PersonCard(
-            person: currentPerson,
-            mode: .view,
-            stateManager: appViewModel.getStateManager(),
-            appViewModel: appViewModel
-        )
-        .id("\(currentPerson.id)-\(refreshID)") // 使用复合ID确保刷新
-        .onTapGesture {
-            withAnimation(.personTransition) {
-                appViewModel.getStateManager().selectPerson(currentPerson)
-                selectedMode = .edit
-                showingPersonCard = true
-            }
+        ZStack {
+            // 添加一个透明的按钮层，确保点击事件被捕获
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    print("PersonCardWrapper: 点击了卡片")
+                    withAnimation(.personTransition) {
+                        appViewModel.getStateManager().selectPerson(currentPerson)
+                        selectedMode = .edit
+                        showingPersonCard = true
+                    }
+                }
+            
+            // 原有的 PersonCard
+            PersonCard(
+                person: currentPerson,
+                mode: .view,
+                stateManager: appViewModel.getStateManager(),
+                appViewModel: appViewModel
+            )
+            .id("\(currentPerson.id)-\(refreshID)") // 使用复合ID确保刷新
+            .allowsHitTesting(false) // 禁用 PersonCard 的点击事件，让上层的 onTapGesture 处理
         }
     }
 }

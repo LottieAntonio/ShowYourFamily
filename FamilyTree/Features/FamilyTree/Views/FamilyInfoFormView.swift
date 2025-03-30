@@ -13,6 +13,14 @@ struct FamilyInfoFormView: View {
     @State private var customImage: UIImage? = nil
     @State private var showingImagePicker = false
     
+    // 添加键盘焦点状态
+    @FocusState private var focusedField: FocusField?
+    
+    // 定义可聚焦的字段
+    enum FocusField {
+        case name, description
+    }
+    
     // 默认族徽选项
     private let badgeOptions = Family.defaultBadgeOptions
     
@@ -21,7 +29,18 @@ struct FamilyInfoFormView: View {
             Form {
                 Section(header: Text("基本信息")) {
                     TextField("家谱名称", text: $familyName)
+                        .focused($focusedField, equals: .name)
+                        .submitLabel(.next)
+                        .onSubmit {
+                            focusedField = .description
+                        }
+                    
                     TextField("家谱描述", text: $familyDescription)
+                        .focused($focusedField, equals: .description)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            focusedField = nil
+                        }
                 }
                 
                 Section(header: Text("选择族徽")) {
@@ -97,7 +116,18 @@ struct FamilyInfoFormView: View {
                     }
                     .disabled(familyName.isEmpty)
                 }
+                
+                // 添加键盘工具栏
+                ToolbarItem(placement: .keyboard) {
+                    HStack {
+                        Spacer()
+                        Button("完成") {
+                            focusedField = nil
+                        }
+                    }
+                }
             }
+            .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
             .sheet(isPresented: $showingImagePicker) {
                 ImagePicker(image: $customImage, sourceType: .photoLibrary)
             }

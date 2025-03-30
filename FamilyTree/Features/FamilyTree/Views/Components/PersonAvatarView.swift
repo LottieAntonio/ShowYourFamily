@@ -215,7 +215,9 @@ struct PersonAvatarView: View {
             .sheet(isPresented: $showPicker, onDismiss: handlePickerDismiss) {
                 PhotoPickerSheet(
                     selectedItem: $selectedItem,
-                    onCameraCapture: handleCameraCapture
+                    gender: person.gender,
+                    onCameraCapture: handleCameraCapture,
+                    onDefaultAvatarSelected: handleDefaultAvatarSelected
                 )
                 .presentationDetents([.medium, .large])
             }
@@ -322,6 +324,53 @@ struct PersonAvatarView: View {
             }
         } else {
             print("警告: onPhotoSelected回调为nil")
+        }
+    }
+
+    // 添加处理默认头像选择的方法
+    private func handleDefaultAvatarSelected(_ image: UIImage) {
+        print("选择了默认头像，personId: \(person.id)")
+        
+        // 直接处理默认头像，跳过编辑器
+        if let imageData = image.pngData() {  // 使用PNG格式保留透明度
+            // 判断是否是add模式
+            let isAddMode = person.id == UUID.init(uuidString: "00000000-0000-0000-0000-000000000000")
+            
+            if isAddMode {
+                // 在add模式下，检查是否已有临时ID
+                if let tempIdString = UserDefaults.standard.string(forKey: "TempPersonPhotoId"),
+                let tempId = UUID(uuidString: tempIdString) {
+                    // 使用现有的临时ID
+                    print("Add模式: 使用现有临时ID: \(tempId)")
+                    
+                    // 保存到管理器
+                    pickerManager.setImage(for: tempId, image: image, data: imageData, source: "default")
+                    print("Add模式: 更新临时ID的默认头像: \(tempId)")
+                    
+                    callPhotoSelectedCallback(imageData)
+                } else {
+                    // 如果没有临时ID，创建一个新的
+                    let tempId = UUID()
+                    print("Add模式: 创建新的临时ID: \(tempId)")
+                    
+                    // 保存到管理器
+                    pickerManager.setImage(for: tempId, image: image, data: imageData, source: "default")
+                    
+                    // 更新UserDefaults中的临时ID
+                    UserDefaults.standard.set(tempId.uuidString, forKey: "TempPersonPhotoId")
+                    print("Add模式: 更新临时ID到UserDefaults: \(tempId)")
+                    
+                    callPhotoSelectedCallback(imageData)
+                }
+            } else {
+                // 正常模式，保存到person的ID
+                pickerManager.setImage(for: person.id, image: image, data: imageData, source: "default")
+                
+                // 标记编辑完成
+                pickerManager.finishEditing(for: person.id)
+                
+                callPhotoSelectedCallback(imageData)
+            }
         }
     }
     
@@ -544,45 +593,96 @@ struct PhotoPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showCamera = false
     @State private var capturedImage: UIImage?
+    let gender: Person.Gender // 添加性别参数，用于筛选合适的默认头像
     
     // 添加一个回调函数来处理拍照结果
     var onCameraCapture: ((UIImage) -> Void)?
+    // 添加一个回调函数来处理默认头像选择
+    var onDefaultAvatarSelected: ((UIImage) -> Void)?
+    
+    // 默认头像名称列表
+    private let defaultAvatarNames = [
+        "person1", "person2", "person3",
+        "person4", "person5", "person6",
+        "emoji4", "emoji7", "emoji8", "emoji9"
+    ]
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("选择照片")
-                .font(.headline)
-            
-            PhotosPicker(
-                selection: $selectedItem,
-                matching: .images,
-                photoLibrary: .shared()
-            ) {
-                Label("从相册选择", systemImage: "photo.on.rectangle")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
-            
-            Button(action: {
-                showCamera = true
-            }) {
-                Label("拍照", systemImage: "camera")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
-            
-            Button("取消") {
-                dismiss()
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("选择照片")
+                    .font(.headline)
+                
+                // 添加默认头像选择区域
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("默认头像")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 10) {
+                        // 显示所有默认头像
+                        ForEach(defaultAvatarNames, id: \.self) { imageName in
+                            if let image = UIImage(named: imageName) {
+                                Button {
+                                    onDefaultAvatarSelected?(image)
+                                    dismiss()
+                                } label: {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(Circle())
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                Divider()
+                    .padding(.vertical)
+                
+                // 原有的相册和拍照选项
+                PhotosPicker(
+                    selection: $selectedItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Label("从相册选择", systemImage: "photo.on.rectangle")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                
+                Button(action: {
+                    showCamera = true
+                }) {
+                    Label("拍照", systemImage: "camera")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                
+                Button("取消") {
+                    dismiss()
+                }
+                .padding()
             }
             .padding()
         }
-        .padding()
         .sheet(isPresented: $showCamera) {
             CameraView(capturedImage: $capturedImage, isShown: $showCamera)
         }
