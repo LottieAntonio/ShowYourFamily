@@ -137,7 +137,7 @@ struct CustomTabBar: View {
     @Binding var showReturnConfirmation: Bool // 添加返回确认绑定
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack() {
             // 移除返回按钮，只保留导航标签
             ForEach(AppCoordinator.Screen.allCases, id: \.self) { tab in
                 TabBarButton(
@@ -154,9 +154,9 @@ struct CustomTabBar: View {
         .padding(.horizontal,50)
         .padding(.vertical)
         .background(
-            RoundedRectangle(cornerRadius: 30)
-                .fill(.ultraThickMaterial)
-                .shadow(color: .black.opacity(0.1), radius: 5, y: -2)
+            RoundedRectangle(cornerRadius: 0)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 0, y: -1)
         )
     }
 }

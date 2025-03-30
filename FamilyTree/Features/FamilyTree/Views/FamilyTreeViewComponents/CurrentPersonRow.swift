@@ -185,10 +185,13 @@ struct BackgroundView: View {
         Group {
             if let image = backgroundImage {
                 // 优先使用已加载的背景图片
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .clipped()
+                ZStack {
+                    Color.familyTheme.greenGradient
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .clipped()
+                }
             } else {
                 // 如果没有图片，使用渐变色背景
                 LinearGradient(

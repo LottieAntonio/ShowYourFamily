@@ -53,16 +53,12 @@ private struct ReadOnlyPersonInfoView: View {
             Image(systemName: "chevron.right")
                 .foregroundStyle(.secondary)
         }
-        .padding(15)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
         .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThickMaterial.opacity(0.5))
-                .shadow(
-                    color: Color.familyTheme.accent.opacity(0.3),
-                    radius: 8,
-                    x: 0,
-                    y: 4
-                )
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.5))
+              
         }
     }
 }
