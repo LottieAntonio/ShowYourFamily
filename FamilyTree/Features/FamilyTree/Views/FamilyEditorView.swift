@@ -56,13 +56,16 @@ struct FamilyEditorView: View {
                         HStack(spacing: 15) {
 
                             // 自定义上传选项
+                            // 修改 CustomBadgeOptionView 的 isSelected 条件
                             CustomBadgeOptionView(
                                 image: customImage,
-                                isSelected: badgeType == .custom,
+                                isSelected: badgeType == .custom && (customImage != nil || showingImagePicker),
                                 action: {
                                     showingImagePicker = true
                                     badgeType = .custom
                                     badgeImageName = nil
+                                    // 重置选中索引，确保其他选项不会显示为选中
+                                    selectedBadgeIndex = -1
                                 }
                             )
                             
@@ -71,7 +74,7 @@ struct FamilyEditorView: View {
                                 let option = badgeOptions[index]
                                 BadgeOptionView(
                                     option: option,
-                                    isSelected: selectedBadgeIndex == index && badgeType != .custom,
+                                    isSelected: selectedBadgeIndex == index && badgeType == option.type,
                                     action: {
                                         selectedBadgeIndex = index
                                         badgeType = option.type
@@ -131,7 +134,6 @@ struct FamilyEditorView: View {
                     Button("取消") {
                         dismiss()
                     }
-                    .foregroundColor(Color.familyTheme.secondary)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -139,7 +141,6 @@ struct FamilyEditorView: View {
                         saveChanges()
                     }
                     .disabled(name.isEmpty)
-                    .foregroundColor(Color.familyTheme.primary)
                 }
             }
             .alert("错误", isPresented: $showingError) {

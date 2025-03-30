@@ -30,11 +30,13 @@ struct FamilyInfoFormView: View {
                             // 自定义上传选项
                             CustomBadgeOptionView(
                                 image: customImage,
-                                isSelected: badgeType == .custom,
+                                isSelected: badgeType == .custom && (customImage != nil || showingImagePicker),
                                 action: {
                                     showingImagePicker = true
                                     badgeType = .custom
                                     badgeImageName = nil
+                                    // 重置选中索引，确保其他选项不会显示为选中
+                                    selectedBadgeIndex = -1
                                 }
                             )
                             
@@ -43,7 +45,7 @@ struct FamilyInfoFormView: View {
                                 let option = badgeOptions[index]
                                 BadgeOptionView(
                                     option: option,
-                                    isSelected: selectedBadgeIndex == index && badgeType != .custom,
+                                    isSelected: selectedBadgeIndex == index && badgeType == option.type,
                                     action: {
                                         selectedBadgeIndex = index
                                         badgeType = option.type
@@ -84,7 +86,6 @@ struct FamilyInfoFormView: View {
                     Button("取消") {
                         isPresented = false
                     }
-                    .foregroundColor(Color.familyTheme.secondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("确定") {
@@ -95,7 +96,6 @@ struct FamilyInfoFormView: View {
                         isPresented = false
                     }
                     .disabled(familyName.isEmpty)
-                    .foregroundColor(Color.familyTheme.primary)
                 }
             }
             .sheet(isPresented: $showingImagePicker) {

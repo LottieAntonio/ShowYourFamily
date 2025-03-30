@@ -89,12 +89,7 @@ struct FamilySelectionView: View {
                             badgeImageName: badgeImageName,
                             badgeImage: customImage
                         )
-                    } else {
-                        try await appViewModel.familyManager.createFamilyFromDefault(
-                            name: name,
-                            description: description.isEmpty ? "nil" : description
-                        )
-                    }
+                    } 
                     
                     // 选择新创建的家谱
                     if let newFamily = appViewModel.familyManager.families.last {
@@ -267,13 +262,13 @@ struct FamilySelectionView: View {
                 .fill(
                     AngularGradient(
                         gradient: Gradient(colors: [
-                            Color.red.opacity(0.2),
-                            Color.orange.opacity(0.2),
-                            Color.yellow.opacity(0.2),
-                            Color.green.opacity(0.2),
-                            Color.blue.opacity(0.2),
-                            Color.purple.opacity(0.2),
-                            Color.red.opacity(0.2)
+                            Color.red.opacity(0.1),
+                            Color.orange.opacity(0.1),
+                            Color.yellow.opacity(0.1),
+                            Color.green.opacity(0.1),
+                            Color.blue.opacity(0.1),
+                            Color.purple.opacity(0.1),
+                            Color.red.opacity(0.1)
                         ]),
                         center: .center,
                         startAngle: .degrees(0),

@@ -134,45 +134,6 @@ class StateManager: ObservableObject {
         }
     }
     
-    // 从默认家谱创建新家谱
-    func createFamilyFromDefault(name: String, description: String) async throws {
-        
-        // 查找默认家谱
-        guard let defaultFamily = state.families.first(where: { $0.isDefault }) else {
-            throw FamilyError.defaultFamilyNotFound
-        }
-        
-        // 创建新家谱
-        let newFamily = Family(
-            id: UUID(),
-            name: name,
-            description: description,
-            isDefault: false
-        )
-        
-        // 保存新家谱
-        try await addFamily(newFamily)
-        
-        // 加载默认家谱的数据
-        let defaultPersons = try await dataManager.loadPersons(familyId: defaultFamily.id)
-        let defaultRelationships = try await dataManager.loadRelationships(familyId: defaultFamily.id)
-        
-        // 复制人物和关系到新家谱
-        for person in defaultPersons {
-            let newPerson = Person(
-                id: UUID(),
-                familyId: newFamily.id,
-                firstName: person.firstName,
-                lastName: person.lastName,
-                gender: person.gender,
-                isSelf: false
-            )
-            try await dataManager.savePerson(newPerson)
-        }
-        
-        // 设置为当前家谱
-        await setCurrentFamily(newFamily)
-    }
     
     // 创建空白家谱
     func createEmptyFamily(name: String, description: String) async throws {

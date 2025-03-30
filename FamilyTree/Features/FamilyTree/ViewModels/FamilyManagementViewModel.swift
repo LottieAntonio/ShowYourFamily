@@ -131,19 +131,7 @@ class FamilyManagementViewModel: ObservableObject {
         await stateManager.loadInitialData()
     }
     
-    // 删除这个重复的方法
-    // func createFamilyFromDefault(name: String, description: String) async throws {
-    //     // 创建一个新的家谱并添加到 stateManager
-    //     let newFamily = Family(
-    //         id: UUID(),
-    //         name: name,
-    //         description: description,
-    //         isDefault: false
-    //     )
-    //     try await stateManager.addFamily(newFamily)
-    //     await stateManager.setCurrentFamily(newFamily)
-    // }
-    
+   
     // 添加创建空白家谱的方法
     func createEmptyFamily(name: String, description: String) async throws {
         // 创建一个空白家谱
@@ -162,14 +150,6 @@ class FamilyManagementViewModel: ObservableObject {
         }
     }
     
-    func createFamilyFromDefault(name: String, description: String) async throws {
-        try await stateManager.createFamilyFromDefault(name: name, description: description)
-        
-        // 通知 appViewModel 刷新数据
-        if let appViewModel = appViewModel {
-            await appViewModel.refreshData()
-        }
-    }
     
     // 添加切换家谱的方法
     func switchFamily(_ family: Family) async {

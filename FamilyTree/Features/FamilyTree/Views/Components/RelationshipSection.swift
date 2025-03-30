@@ -36,7 +36,7 @@ struct RelationshipSection: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 15) {
             HeaderView(
                 title: title,
                 onAddTap: onAddTap,
@@ -292,49 +292,46 @@ private struct HeaderView: View {
             // 标题部分增加emoji和动画效果
             titleView
             
-            Spacer()
             
             // 添加人数指示器
             if uniquePersonCount > 1 {
                 Text("\(uniquePersonCount)")
                     .font(.caption)
-                    .padding(6)
+                    .padding(4)
                     .background(
                         Circle()
                             .fill(Color.familyTheme.accent.opacity(0.2))
                     )
                     .transition(.scale.combined(with: .opacity))
             }
-            
+            Spacer()
+
             // 菜单按钮
             menuButton
         }
+        
     }
     
     // 标题视图
     private var titleView: some View {
-        HStack(spacing: 6) {
+        HStack() {
             // 添加emoji
-            Text(relationshipEmoji)
-                .font(.system(size: 14))
-                .padding(4)
-                .background(
-                    Circle()
-                        .fill(Color.familyTheme.primary.opacity(0.3))
-                )
+//            Text(relationshipEmoji)
+//                .font(.system(size: 14))
+//                .padding(4)
+//                .background(
+//                    Circle()
+//                        .fill(Color.familyTheme.primary.opacity(0.3))
+//                )
             
             Text(title)
-                .padding(.horizontal, 4)
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(Color.familyTheme.primary)
         }
         .padding(.horizontal ,3)
         .padding(.vertical ,4)
-        .background(
-            Capsule()
-                .fill(Color.familyTheme.primary.opacity(0.1))
-        )
+        
     }
     
     // 菜单按钮
@@ -346,8 +343,8 @@ private struct HeaderView: View {
             // 父母关系的菜单项
             parentMenuItems
         } label: {
-            Image(systemName: canAdd ? "plus.circle.fill" : "ellipsis.circle.fill")
-                .foregroundStyle(canAdd ? Color.familyTheme.secondary : Color.familyTheme.primary)
+            Image(systemName: "ellipsis.circle.fill")
+                .foregroundStyle(Color.familyTheme.primary)
                 .font(.callout)
                 .symbolEffect(.pulse, options: .repeating, value: canAdd)
         }
