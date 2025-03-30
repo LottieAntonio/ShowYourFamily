@@ -90,11 +90,7 @@ struct FamilySelectionView: View {
                             badgeImage: customImage
                         )
                     } 
-                    
-                    // 选择新创建的家谱
-                    if let newFamily = appViewModel.familyManager.families.last {
-                        selectedFamily = newFamily
-                    }
+
                 } catch {
                     appViewModel.errorMessage = error.localizedDescription
                     showingError = true

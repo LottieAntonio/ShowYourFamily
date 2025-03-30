@@ -2,9 +2,9 @@ import SwiftUI
 
 struct MembersView: View {
     @EnvironmentObject private var appViewModel: FamilyAppViewModel
-    @State private var showingPersonCard = false
     @State private var selectedMode: PersonCardMode = .view
-    @State private var selectedPerson: Person?
+    // 使用包含模式的结构体来传递数据
+    @State private var personToEdit: PersonWithMode?
     let family: Family
     
     var body: some View {
@@ -18,32 +18,46 @@ struct MembersView: View {
                             PersonRow(person: person, appViewModel: appViewModel)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    selectedPerson = person
-                                    selectedMode = .edit
-                                    showingPersonCard = true
+                                    // 直接设置要编辑的人物，这会触发 sheet 显示
+                                    if let fullPerson = appViewModel.persons.first(where: { $0.id == person.id }) {
+                                        print("准备显示 - 人物: \(fullPerson.firstName)")
+                                        // 创建包含人物和模式的结构体
+                                        personToEdit = PersonWithMode(person: fullPerson, mode: .edit)
+                                    } else {
+                                        print("未找到完整的人物数据")
+                                    }
                                 }
                             }
                         }
                     .padding(.bottom, 68)
-                    
                 }
             }
-            .sheet(isPresented: $showingPersonCard) {
+            // 使用 item-based sheet
+            .sheet(item: $personToEdit) { personWithMode in
                 NavigationStack {
                     PersonCard(
-                        person: selectedPerson,
-                        mode: selectedMode, 
+                        person: personWithMode.person,
+                        mode: personWithMode.mode, 
                         stateManager: appViewModel.getStateManager(),
                         appViewModel: appViewModel
                     )
+                    .onAppear {
+                        print("PersonCard显示 - 人物: \(personWithMode.person.firstName), 模式: \(personWithMode.mode)")
+                    }
                 }
             }
         }
-        // 不再需要 onAppear 逻辑，因为我们直接使用 appViewModel
     }
 }
 
-// 修改 PersonRow 视图
+// 创建一个包含人物和模式的结构体，用于 item-based sheet
+struct PersonWithMode: Identifiable {
+    let id = UUID()
+    let person: Person
+    let mode: PersonCardMode
+}
+
+// PersonRow 视图保持不变
 struct PersonRow: View {
     let person: Person
     let appViewModel: FamilyAppViewModel
