@@ -385,7 +385,7 @@ struct FamilySelectionView: View {
                     if let description = family.description, !description.isEmpty {
                         Text(description)
                             .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .padding(.horizontal)
@@ -398,7 +398,7 @@ struct FamilySelectionView: View {
                             .foregroundColor(Color.familyTheme.primary.opacity(0.7))
                         Text("\(memberCount) 位成员")
                             .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                     }
                     .padding(.vertical,3)
                 }

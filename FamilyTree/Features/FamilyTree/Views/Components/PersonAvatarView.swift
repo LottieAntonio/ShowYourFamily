@@ -564,9 +564,19 @@ struct PersonAvatarView: View {
                     .foregroundStyle(.white)
                     .font(.system(size: size * 0.5))
             } else {
-                Text(person.name.prefix(1))
-                    .font(.system(size: size * 0.4, weight: .medium))
-                    .foregroundStyle(.white)
+                // 根据性别显示不同的默认头像
+                if let defaultImage = UIImage(named: person.gender == .male ? "person1" : "person5") {
+                    Image(uiImage: defaultImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(Circle())
+                } else {
+                    // 如果默认头像加载失败，显示名字首字母作为备选
+                    Text(person.name.prefix(1))
+                        .font(.system(size: size * 0.4, weight: .medium))
+                        .foregroundStyle(.white)
+                }
             }
         }
     }

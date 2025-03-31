@@ -113,7 +113,7 @@ private struct EditablePersonInfoView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("姓")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                             .padding(.leading, 4)
                         
                         TextField("姓", text: $lastName)
@@ -140,7 +140,7 @@ private struct EditablePersonInfoView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("名")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                             .padding(.leading, 4)
                         
                         TextField("名", text: $firstName)
@@ -168,7 +168,7 @@ private struct EditablePersonInfoView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("自定义称呼")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.gray)
                         .padding(.leading, 4)
                     
                     TextField("留空则自动生成", text: $notes, axis: .vertical)
@@ -198,7 +198,7 @@ private struct EditablePersonInfoView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("性别")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                     .padding(.leading, 4)
                 
                 // 使用简化版的选择器，确保可点击性
@@ -225,7 +225,7 @@ private struct EditablePersonInfoView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("出生日期")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                     .padding(.leading, 4)
                 
                 HStack {
@@ -264,7 +264,7 @@ private struct EditablePersonInfoView: View {
                 .fill(Color.white.opacity(0.8))
                 .shadow(color: Color.familyTheme.primary.opacity(0.1), radius: 15, x: 0, y: 10)
         )
-        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
+//        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
         .toolbar {
             ToolbarItem(placement: .keyboard) {
                 HStack {
@@ -369,7 +369,7 @@ struct PersonBasicInfoSection: View {
                 }
             }
         }
-        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
+//        .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
         .onReceive(viewModel.$state) { newState in
             lastName = newState.basicInfo.lastName
             firstName = newState.basicInfo.firstName

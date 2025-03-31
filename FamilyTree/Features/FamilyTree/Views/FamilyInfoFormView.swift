@@ -118,16 +118,15 @@ struct FamilyInfoFormView: View {
                 }
                 
                 // 添加键盘工具栏
-                ToolbarItem(placement: .keyboard) {
-                    HStack {
-                        Spacer()
-                        Button("完成") {
-                            focusedField = nil
-                        }
+                // 修改键盘工具栏
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        focusedField = nil
                     }
                 }
             }
-            .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
+//            .dismissKeyboardOnTap() // 添加点击空白处关闭键盘
             .sheet(isPresented: $showingImagePicker) {
                 ImagePicker(image: $customImage, sourceType: .photoLibrary)
             }

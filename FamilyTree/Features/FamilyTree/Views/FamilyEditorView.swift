@@ -161,16 +161,15 @@ struct FamilyEditorView: View {
                     .disabled(name.isEmpty)
                 }
                 
-                ToolbarItem(placement: .keyboard) {
-                    HStack {
-                        Spacer()
-                        Button("完成") {
-                            focusedField = nil
-                        }
+                // 修改键盘工具栏部分
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        focusedField = nil
                     }
                 }
             }
-            .dismissKeyboardOnTap()
+//            .dismissKeyboardOnTap()
             .alert("错误", isPresented: $showingError) {
                 Button("确定", role: .cancel) { }
             } message: {
@@ -198,7 +197,9 @@ struct FamilyEditorView: View {
                 switch result {
                 case .success(let data):
                     if let data = data, let image = UIImage(data: data) {
-                        self.customImage = image
+                        // 添加图像压缩处理
+                        let resizedImage = self.resizeImage(image, targetSize: CGSize(width: 300, height: 300))
+                        self.customImage = resizedImage
                         self.badgeType = .custom
                         self.badgeImageName = nil
                     }
@@ -209,6 +210,43 @@ struct FamilyEditorView: View {
                 }
             }
         }
+    }
+    
+    // 添加图像压缩方法
+    private func resizeImage(_ image: UIImage, targetSize: CGSize) -> UIImage {
+        let size = image.size
+        
+        // 计算缩放比例
+        let widthRatio  = targetSize.width  / size.width
+        let heightRatio = targetSize.height / size.height
+        
+        // 使用较小的比例，保持宽高比
+        let scaleFactor = min(widthRatio, heightRatio)
+        
+        // 如果图像已经小于目标尺寸，不需要缩放
+        if scaleFactor >= 1 {
+            return image
+        }
+        
+        // 计算新尺寸
+        let scaledWidth  = size.width * scaleFactor
+        let scaledHeight = size.height * scaleFactor
+        let targetRect = CGRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight)
+        
+        // 绘制缩放后的图像
+        UIGraphicsBeginImageContextWithOptions(CGSize(width: scaledWidth, height: scaledHeight), false, 1.0)
+        image.draw(in: targetRect)
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        // 压缩图像质量
+        if let newImage = newImage,
+           let compressedData = newImage.jpegData(compressionQuality: 0.7),
+           let compressedImage = UIImage(data: compressedData) {
+            return compressedImage
+        }
+        
+        return newImage ?? image
     }
     
     private func saveChanges() {

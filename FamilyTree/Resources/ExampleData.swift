@@ -10,11 +10,12 @@ private struct RawFamilyData: Codable {
         let badgeImageName: String?
     }
     
+    // 修改 RawPerson 结构体，使用 String 类型接收日期，然后手动解析
     struct RawPerson: Codable {
         let firstName: String
         let lastName: String
         let gender: String
-        let birthDate: Date
+        let birthDate: String  // 改为 String 类型
         let birthOrder: Int
         let isSelf: Bool?
         let photoImageName: String?
@@ -79,6 +80,7 @@ struct ExampleData {
             let personId = UUID()
             personIndexToId[index] = personId
             
+            // 创建基本 Person 对象
             var person = Person(
                 id: personId,
                 familyId: familyId,
@@ -86,17 +88,47 @@ struct ExampleData {
                 lastName: rawPerson.lastName,
                 gender: rawPerson.gender == "male" ? .male : (rawPerson.gender == "female" ? .female : .other),
                 isSelf: rawPerson.isSelf ?? false
-            ).with(birthDate: rawPerson.birthDate)
+            )
             
-            // 加载照片
-            if let photoName = rawPerson.photoImageName, let image = loadImage(named: photoName) {
-                // 将 UIImage 转换为 Data
-                if let photoData = image.jpegData(compressionQuality: 0.8) {
-                    // 这里需要确保 Person 有 photo 属性和 with(photo:) 方法
-                    // 假设 Person 结构体有一个接受 Data 类型的 photo 属性
-                    person = person.with(photo: photoData)
+            // 手动解析日期
+            let dateFormatter = ISO8601DateFormatter()
+            if let birthDate = dateFormatter.date(from: rawPerson.birthDate) {
+                // 使用 with 方法设置 birthDate
+                person = person.with(birthDate: birthDate)
+                print("成功解析日期: \(rawPerson.firstName) - \(rawPerson.birthDate) -> \(birthDate)")
+                print("Person \(person.firstName) 的 birthDate 属性值: \(String(describing: person.birthDate))")
+            } else {
+                print("⚠️ 日期解析失败: \(rawPerson.firstName) - \(rawPerson.birthDate)")
+                
+                // 尝试修复常见的日期格式问题
+                var fixedDateString = rawPerson.birthDate
+                // 修复日期部分超过两位数的问题
+                if fixedDateString.contains("-09-011T") {
+                    fixedDateString = fixedDateString.replacingOccurrences(of: "-09-011T", with: "-09-01T")
+                    print("尝试修复日期: \(fixedDateString)")
+                    
+                    if let fixedDate = dateFormatter.date(from: fixedDateString) {
+                        person = person.with(birthDate: fixedDate)
+                        print("修复后解析成功: \(rawPerson.firstName) - \(fixedDateString) -> \(fixedDate)")
+                        
+                        // 添加调试信息，确认修复后的日期已正确设置
+                        print("Person \(person.firstName) 的修复后 birthDate 属性值: \(String(describing: person.birthDate))")
+                    }
                 }
             }
+            
+            // 加载照片（如果有）
+            if let photoName = rawPerson.photoImageName {
+                if let photoImage = loadImage(named: photoName) {
+                    if let photoData = photoImage.pngData() {
+                        // 修正参数顺序：birthDate 必须在 photo 之前
+                        person = person.with(birthDate: person.birthDate, photo: photoData)
+                    }
+                }
+            }
+            
+            // 再次确认 person 对象的 birthDate 是否正确
+            print("最终 Person \(person.firstName) 的 birthDate: \(String(describing: person.birthDate))")
             
             persons.append(person)
         }
